@@ -17,7 +17,7 @@ import numpy as np
 import pickle
 import subprocess
 
-from utils.sv_trials_loaders import dataloader_from_trial, get_spk2xvector, generate_scores_from_net, xv_pairs_from_trial, concatenate_datasets, get_train_dataset, dataset_from_trial, dataset_from_sre08_10_trial
+from utils.sv_trials_loaders import dataloader_from_trial, get_spk2xvector, generate_scores_from_net, generate_scores_in_batches, xv_pairs_from_trial, concatenate_datasets, get_train_dataset, dataset_from_trial, dataset_from_sre08_10_trial
 from utils.calibration import get_cmn2_thresholds
 from utils.Kaldi2NumpyUtils.kaldiPlda2numpydict import kaldiPlda2numpydict
 
@@ -115,9 +115,9 @@ def train(args, model, device, train_loader, optimizer, epoch):
             
 
 
-def validate(args, model, device, data_loader, epoch, savescores=False):
+def validate(args, model, device, data_loader):
     model.eval()
-    minC_threshold1, minC_threshold2, min_cent_threshold = compute_minc_threshold(args, model, device, data_loader,epoch,savescores)
+    minC_threshold1, minC_threshold2, min_cent_threshold = compute_minc_threshold(args, model, device, data_loader)
     test_loss = 0
     correct = 0
     fa1 = 0
@@ -169,7 +169,7 @@ def validate(args, model, device, data_loader, epoch, savescores=False):
 
 
 
-def compute_minc_threshold(args, model, device, data_loader, epoch):
+def compute_minc_threshold(args, model, device, data_loader):
     device1=torch.device('cpu')
     model = model.to(device1)
     with torch.no_grad():
@@ -184,7 +184,7 @@ def compute_minc_threshold(args, model, device, data_loader, epoch):
 
 
 def score_18_eval(sre18_eval_trials_file_path, model, device, sre18_eval_xv_pairs_1, sre18_eval_xv_pairs_2):
-    generate_scores_from_net("scores/scores_kaldipldanet_CUDA__random_init_xent_eval_{}.txt".format(timestamp), device, sre18_eval_trials_file_path, sre18_eval_xv_pairs_1, sre18_eval_xv_pairs_2, model)
+    generate_scores_in_batches("scores/{}_{}.txt".format('sre18_eval',timestamp), device, sre18_eval_trials_file_path, sre18_eval_xv_pairs_1, sre18_eval_xv_pairs_2, model)
 
 def main_score_eval():
     print("Scoring eval")
@@ -315,7 +315,7 @@ def main_kaldiplda():
     
     print("SRE18_Dev Trials:")
     logging.info("SRE16_18_dev_eval Trials:")
-    valloss, minC_threshold1, minC_threshold2, min_cent_threshold  = validate(args, model, device, sre18_dev_trials_loader, 0)
+    valloss, minC_threshold1, minC_threshold2, min_cent_threshold  = validate(args, model, device, sre18_dev_trials_loader)
     all_losses.append(valloss)
 
     
@@ -323,11 +323,11 @@ def main_kaldiplda():
         train(args, model, device, train_loader, optimizer, epoch)
         print("SRE16_18_dev_eval Trials:")
         logging.info("SRE16_18_dev_eval Trials:")
-        valloss, minC_threshold1, minC_threshold2, min_cent_threshold  = validate(args, model, device,sre18_dev_trials_loader, epoch)
+        valloss, minC_threshold1, minC_threshold2, min_cent_threshold  = validate(args, model, device, sre18_dev_trials_loader)
         all_losses.append(valloss)
         model.SaveModel("models/kaldi_pldaNet_sre0410_swbd_16_{}.swbdsremx6epoch.{}.pt".format(epoch,timestamp))
         print("Generating scores for Epoch ",epoch)       
-        generate_scores_from_net("scores/scores_kaldipldanet_CUDA_Random{}_{}.txt".format(epoch,timestamp), device, sre18_dev_trials_file_path, sre18_dev_xv_pairs_1, sre18_dev_xv_pairs_2, model)
+        generate_scores_in_batches("scores/scores_kaldipldanet_CUDA_Random{}_{}.txt".format(epoch,timestamp), device, sre18_dev_trials_file_path, sre18_dev_xv_pairs_1, sre18_dev_xv_pairs_2, model)
         try:
             if all_losses[-1] < bestloss:
                 bestloss = all_losses[-1]

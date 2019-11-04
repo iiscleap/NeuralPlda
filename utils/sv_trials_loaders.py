@@ -498,6 +498,33 @@ def xv_pairs_from_trial(trials_file, enroll_spk2xvector, test_xvectors):
     tensor_X2 = torch.from_numpy(np.asarray(x2_arr)).float() 
     return tensor_X1, tensor_X2
 
+def generate_scores_in_batches(score_filename, device, trials_file, x1, x2, model, scores=None):
+    model = model.cpu()
+    batch_size = 1024
+    iters = x1.shape[0]//batch_size
+    x1 = x1.cpu()
+    x2 = x2.cpu()
+    S = torch.tensor([])
+    model = model.eval()
+    with torch.no_grad():
+        if scores is None:
+            for i in range(iters):
+                x1_b = x1[i*batch_size:i*batch_size + batch_size]
+                x2_b = x2[i*batch_size:i*batch_size + batch_size]
+                S_b = model.forward(x1_b,x2_b)
+                S = torch.cat((S,S_b))
+            x1_b = x1[iters*batch_size:]
+            x2_b = x2[iters*batch_size:]
+            S_b = model.forward(x1_b,x2_b)
+            S = torch.cat((S,S_b))
+            scores = np.asarray(S.detach()).astype(str)
+        else:
+            scores = np.asarray(scores).astype(str)
+    trials = np.genfromtxt(trials_file, dtype='str')
+    header = '\t'.join(trials[0])+'\tLLR'
+    np.savetxt(score_filename, np.c_[trials[1:],scores], header=header, fmt='%s', delimiter='\t', comments='')
+    model=model.to(device)
+
 def generate_scores_from_net(score_filename, device, trials_file, x1, x2, model, scores=None):
     model = model.cpu()
     x1 = x1.cpu()
