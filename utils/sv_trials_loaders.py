@@ -160,7 +160,7 @@ def get_enrollmodel2xvector(enroll_spk2utt_path,enroll_xvector_path):
 
 
 def kaldivec2numpydict(inArkOrScpFile, outpicklefile=''):
-    #logging.debug('kaldi text file to numpy array: {}'.format(textfile))
+    # This function converts a Kaldi vector file into a dictionary with numpy arrays of the vector as the dictionary values
     if os.path.splitext(inArkOrScpFile)[1] == '.scp':
         fin = subprocess.check_output(["copy-vector", "scp:{}".format(inArkOrScpFile),"ark,t:-"])
     else: #Assuming ARK
@@ -186,7 +186,6 @@ def dataloader_from_list(pair_list, res, batch_size = 64, shuffle=True, train_an
             x1_vec, x2_vec = res[x1_id], res[x2_id]
         except:
             continue
-        #l = np.array([int(label)])
         x1_array.append(x1_vec)
         x2_array.append(x2_vec)
         y_array.append(int(label))
@@ -231,9 +230,6 @@ def dataloader_from_trial(trial_file_path, enroll_spk2xvector, test_xvectors,bat
                y_arr.append(0)
            x1_arr.append(x1_vec)
            x2_arr.append(x2_vec)
-    #print(np.shape((np.asarray(x1_arr))))
-    #print(type(x1_arr))
-    #print(x1_arr)
     tensor_X1 = torch.from_numpy(np.asarray(x1_arr)).float() 
     tensor_X2 = torch.from_numpy(np.asarray(x2_arr)).float() 
     tensor_Y = torch.from_numpy(np.asarray(y_arr)).float()
@@ -249,7 +245,6 @@ def dataset_from_list(pair_list, res, batch_size = 64, shuffle=True):
             x1_vec, x2_vec = res[x1_id], res[x2_id]
         except:
             continue
-        #l = np.array([int(label)])
         x1_array.append(x1_vec)
         x2_array.append(x2_vec)
         y_array.append(int(label))
@@ -281,15 +276,11 @@ def dataset_from_trial(trial_file_path, enroll_spk2xvector, test_xvectors,batch_
                y_arr.append(0)
            x1_arr.append(x1_vec)
            x2_arr.append(x2_vec)
-    #print(np.shape((np.asarray(x1_arr))))
-    #print(type(x1_arr))
-    #print(x1_arr)
     tensor_X1 = torch.from_numpy(np.asarray(x1_arr)).float() 
     tensor_X2 = torch.from_numpy(np.asarray(x2_arr)).float() 
     tensor_Y = torch.from_numpy(np.asarray(y_arr)).float()
     dataset = utils.TensorDataset(tensor_X1,tensor_X2,tensor_Y)
-#    trial_loader=utils.DataLoader(dataset,batch_size=batch_size, shuffle=shuffle)
-    return dataset  #tensor_X1, tensor_X2 , np.asarray(y_arr)
+    return dataset  
 
 def concatenate_datasets(datasets_list,batch_size = 4096):
     combined_dataset = utils.ConcatDataset(datasets_list)
@@ -481,6 +472,7 @@ def get_train_dataset(data_dir_list, xvec_list, batch_size=64):
 
 
 def xv_pairs_from_trial(trials_file, enroll_spk2xvector, test_xvectors):
+    # Returns tensors containing xvector features of the trial pair
     x1_arr, x2_arr=[], []
     fp = np.genfromtxt(trials_file, dtype='str')
     if 'model' in fp[0,0]:
@@ -499,6 +491,8 @@ def xv_pairs_from_trial(trials_file, enroll_spk2xvector, test_xvectors):
     return tensor_X1, tensor_X2
 
 def generate_scores_in_batches(score_filename, device, trials_file, x1, x2, model, scores=None):
+    # To reduce memory usage on CPU, scores are generated in batches and then concatenated
+    
     model = model.cpu()
     batch_size = 1024
     iters = x1.shape[0]//batch_size
