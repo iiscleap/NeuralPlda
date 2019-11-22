@@ -7,6 +7,7 @@ import pickle
 import os
 import torch
 import torch.utils.data as utils
+from pdb import set_trace as bp
 
 
 def make_same_speaker_list(spk2utt_file, same_speaker_list_file = None, n_repeats = 1, train_and_valid=False, train_ratio=0.9):
@@ -208,76 +209,79 @@ def dataloader_from_list(pair_list, res, batch_size = 64, shuffle=True, train_an
 
 
 
-def dataloader_from_trial(trial_file_path, enroll_spk2xvector, test_xvectors,batch_size = 256, shuffle=True):
+def dataloader_from_trial(trial_file_path, id_to_num_dict, batch_size = 256, shuffle=True):
     x1_arr, x2_arr=[], []
     y_arr = []
     with open(trial_file_path) as fp:
        for line in fp:
            x1_id,x2_id,label=line.strip().split()
            try:
-               x1_vec=enroll_spk2xvector[x1_id]
-               x2_vec=test_xvectors[x2_id]
-              # print(type(x1_vec))
-              ## print(type(x2_vec))
-               #print(len(x1_vec))
-               #print(len(x2_vec))
+               x1_num, x2_num = id_to_num_dict[x1_id], id_to_num_dict[x2_id]
+#               x1_vec=enroll_spk2xvector[x1_id]
+#               x2_vec=test_xvectors[x2_id]
            except:
-#               print("Error while loading X-vectors!!!")
+##               print("Error while loading X-vectors!!!")
                continue
            if label=='target':
                y_arr.append(1)
            elif label=='nontarget': #doing this to catch if there are any other spellings used
                y_arr.append(0)
-           x1_arr.append(x1_vec)
-           x2_arr.append(x2_vec)
-    tensor_X1 = torch.from_numpy(np.asarray(x1_arr)).float() 
-    tensor_X2 = torch.from_numpy(np.asarray(x2_arr)).float() 
+           x1_arr.append(x1_num)
+           x2_arr.append(x2_num)
+    tensor_X1 = torch.from_numpy(np.asarray(x1_arr)) 
+    tensor_X2 = torch.from_numpy(np.asarray(x2_arr)) 
     tensor_Y = torch.from_numpy(np.asarray(y_arr)).float()
     dataset = utils.TensorDataset(tensor_X1,tensor_X2,tensor_Y)
     trial_loader=utils.DataLoader(dataset,batch_size=batch_size, shuffle=shuffle)
     return trial_loader  #tensor_X1, tensor_X2 , np.asarray(y_arr)
 
-def dataset_from_list(pair_list, res, batch_size = 64, shuffle=True):
+def dataset_from_list(pair_list, id_to_num_dict, batch_size = 64, shuffle=True):
     x1_array, x2_array, y_array = [],[],[]
-    for f in pair_list:
+    for i,f in enumerate(pair_list):
         x1_id,x2_id,label = f[0],f[1],f[2]
-        try:    
-            x1_vec, x2_vec = res[x1_id], res[x2_id]
+        try:
+            x1_num, x2_num = id_to_num_dict[x1_id], id_to_num_dict[x2_id]
+#        try:    
+#            x1_vec, x2_vec = res[x1_id], res[x2_id]
         except:
             continue
-        x1_array.append(x1_vec)
-        x2_array.append(x2_vec)
+        x1_array.append(x1_num)
+        x2_array.append(x2_num)
         y_array.append(int(label))
-    tensor_X1 = torch.from_numpy(np.asarray(x1_array)).float() #torch.stack([torch.Tensor(i) for i in x1_array])
-    tensor_X2 = torch.from_numpy(np.asarray(x2_array)).float() #torch.stack([torch.Tensor(i) for i in x2_array])
+    tensor_X1 = torch.from_numpy(np.asarray(x1_array)) #torch.stack([torch.Tensor(i) for i in x1_array])
+    tensor_X2 = torch.from_numpy(np.asarray(x2_array)) #torch.stack([torch.Tensor(i) for i in x2_array])
     tensor_Y = torch.from_numpy(np.asarray(y_array)).float() #torch.stack([torch.Tensor(i) for i in y_array]).long()
     dataset = utils.TensorDataset(tensor_X1,tensor_X2,tensor_Y)
     return dataset
 
-def dataset_from_trial(trial_file_path, enroll_spk2xvector, test_xvectors,batch_size = 256, shuffle=True):
+def dataset_from_trial(trial_file_path, id_to_num_dict, batch_size = 256, shuffle=True):
     x1_arr, x2_arr=[], []
     y_arr = []
     with open(trial_file_path) as fp:
        for line in fp:
            x1_id,x2_id,label=line.strip().split()
            try:
-               x1_vec=enroll_spk2xvector[x1_id]
-               x2_vec=test_xvectors[x2_id]
+               x1_num, x2_num = id_to_num_dict[x1_id], id_to_num_dict[x2_id]
+           except:
+               continue
+#           try:
+#               x1_vec=enroll_spk2xvector[x1_id]
+#               x2_vec=test_xvectors[x2_id]
               # print(type(x1_vec))
               ## print(type(x2_vec))
                #print(len(x1_vec))
                #print(len(x2_vec))
-           except:
-#               print("Error while loading X-vectors!!!")
-               continue
+#           except:
+##               print("Error while loading X-vectors!!!")
+#               continue
            if label=='target':
                y_arr.append(1)
            elif label=='nontarget': #doing this to catch if there are any other spellings used
                y_arr.append(0)
-           x1_arr.append(x1_vec)
-           x2_arr.append(x2_vec)
-    tensor_X1 = torch.from_numpy(np.asarray(x1_arr)).float() 
-    tensor_X2 = torch.from_numpy(np.asarray(x2_arr)).float() 
+           x1_arr.append(x1_num)
+           x2_arr.append(x2_num)
+    tensor_X1 = torch.from_numpy(np.asarray(x1_arr))
+    tensor_X2 = torch.from_numpy(np.asarray(x2_arr))
     tensor_Y = torch.from_numpy(np.asarray(y_arr)).float()
     dataset = utils.TensorDataset(tensor_X1,tensor_X2,tensor_Y)
     return dataset  
@@ -337,15 +341,16 @@ def dataloader_from_sre18_dev_vast_trial(trials, enroll_model2xvector, test_xvec
     trial_loader=utils.DataLoader(dataset,batch_size=batch_size, shuffle=shuffle)
     return trial_loader
 
-def dataset_from_sre08_10_trial(trials, enroll_model2xvector, test_xvectors, utts_dict, batch_size = 2048, shuffle=True):
+def dataset_from_sre08_10_trial(trials, id_to_num_dict, utts_dict, batch_size = 2048, shuffle=True):
     x1_arr, x2_arr=[], []
     y_arr = []
 
     for line in trials:
         x1_id,x2_id,label=line[0],line[1],line[2]
         try:
-           x1_vec=enroll_model2xvector[x1_id]
-           x2_vec=test_xvectors[utts_dict[x2_id]]
+            x1_num, x2_num = id_to_num_dict[x1_id], id_to_num_dict[utts_dict[x2_id]]
+#           x1_vec=enroll_model2xvector[x1_id]
+#           x2_vec=test_xvectors[utts_dict[x2_id]]
         except:
 #            print("Error while loading X-vectors!!!")
             continue
@@ -353,14 +358,26 @@ def dataset_from_sre08_10_trial(trials, enroll_model2xvector, test_xvectors, utt
             y_arr.append(1)
         elif label=='nontarget':
             y_arr.append(0)
-        x1_arr.append(x1_vec)
-        x2_arr.append(x2_vec)
-    
-    tensor_X1 = torch.from_numpy(np.asarray(x1_arr)).float() 
-    tensor_X2 = torch.from_numpy(np.asarray(x2_arr)).float() 
+        elif label=='unused':
+            continue
+        x1_arr.append(x1_num)
+        x2_arr.append(x2_num)
+    tensor_X1 = torch.from_numpy(np.asarray(x1_arr)) 
+    tensor_X2 = torch.from_numpy(np.asarray(x2_arr)) 
     tensor_Y = torch.from_numpy(np.asarray(y_arr)).float()
     dataset = utils.TensorDataset(tensor_X1,tensor_X2,tensor_Y)
     return dataset
+
+
+def load_xvec_from_batch(mega_xvec_dict, num_to_id_dict, data1, data2, device):
+    data1_xvec, data2_xvec = [],[] #torch.tensor([[]]), torch.tensor([[]])
+    for i, (d1, d2) in enumerate(zip(data1, data2)):
+        data1_xvec_temp, data2_xvec_temp =  mega_xvec_dict[num_to_id_dict[int(d1)]], mega_xvec_dict[num_to_id_dict[int(d2)]]
+        data1_xvec.append(data1_xvec_temp)
+        data2_xvec.append(data2_xvec_temp)
+    tensor_X1 = torch.from_numpy(np.asarray(data1_xvec)).float().to(device) 
+    tensor_X2 = torch.from_numpy(np.asarray(data2_xvec)).float().to(device)
+    return tensor_X1, tensor_X2
 
 def dataloader_from_trials_list(trial_file_paths_list, enroll_spk2xvectors_list, test_xvectors_list, batch_size = 2048, shuffle=True):
     x1_arr, x2_arr=[], []
@@ -429,7 +446,7 @@ def get_train_valid_loader(data_dir_list, xvec_list, batch_size=64):
     train_loader, valid_loader = dataloader_from_list(mega_list, xvec_dict, batch_size = batch_size, shuffle=True, train_and_valid=True, train_ratio=0.9)
     return train_loader, valid_loader
 
-def get_train_dataset(data_dir_list, xvec_list, batch_size=64):
+def get_train_dataset(data_dir_list, xvec_list, id_to_num_dict, batch_size=64):
 #    Make sure that each data dir in data_dir_list is of same gender, same sorce, same language, etc. More Matching Metadata --> Better the model training.
     
 #    Can also specify the num_repeats after the dir name followed with tab separation in 2 column format. If not specified, default num_repeats is set to 1.
@@ -461,13 +478,13 @@ def get_train_dataset(data_dir_list, xvec_list, batch_size=64):
         np.random.shuffle(concat_pair_list)
         mega_list.extend(concat_pair_list)
     
-    xvec_dict = {}
-    for arkOrScpFile in xvec_list:
-        res = kaldivec2numpydict(arkOrScpFile)
-        xvec_dict.update(res)
+#    xvec_dict = {}
+#    for arkOrScpFile in xvec_list:
+#        res = kaldivec2numpydict(arkOrScpFile)
+#        xvec_dict.update(res)
     
-    print(len(mega_list))
-    train_set = dataset_from_list(mega_list, xvec_dict, batch_size = batch_size, shuffle=True)
+#    print(len(mega_list))
+    train_set = dataset_from_list(mega_list, id_to_num_dict, batch_size = batch_size, shuffle=True)
     return train_set
 
 

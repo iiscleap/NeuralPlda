@@ -8,7 +8,7 @@ Created on Mon Oct  8 11:58:51 2018
 
 
 import numpy as np
-
+from pdb import set_trace as bp
 
 def sigmoid(x):
     z = np.exp(-x)

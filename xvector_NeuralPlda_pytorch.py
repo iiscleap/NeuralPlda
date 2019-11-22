@@ -16,8 +16,9 @@ import torch.optim as optim
 import numpy as np
 import pickle
 import subprocess
+from pdb import set_trace as bp
 
-from utils.sv_trials_loaders import dataloader_from_trial, get_spk2xvector, generate_scores_from_net, generate_scores_in_batches, xv_pairs_from_trial, concatenate_datasets, get_train_dataset, dataset_from_trial, dataset_from_sre08_10_trial
+from utils.sv_trials_loaders import dataloader_from_trial, get_spk2xvector, generate_scores_from_net, generate_scores_in_batches, xv_pairs_from_trial, concatenate_datasets, get_train_dataset, dataset_from_trial, dataset_from_sre08_10_trial, load_xvec_from_batch
 from utils.calibration import get_cmn2_thresholds
 from utils.Kaldi2NumpyUtils.kaldiPlda2numpydict import kaldiPlda2numpydict
 
@@ -42,9 +43,9 @@ class NeuralPlda(nn.Module):
         self.centering_and_wccn_plda = nn.Linear(LDA_dim, PLDA_dim)
         self.P_sqrt = nn.Parameter(torch.rand(PLDA_dim,requires_grad=True))
         self.Q = nn.Parameter(torch.rand(PLDA_dim,requires_grad=True))
-        self.threshold1 = nn.Parameter(torch.tensor(0.0)).to(device)
-        self.threshold2 = nn.Parameter(torch.tensor(0.0)).to(device)
-        self.threshold_Xent = nn.Parameter(torch.tensor(0.0)).to(device)
+        self.threshold1 = torch.nn.Parameter(0*torch.rand(1,requires_grad=True)) # nn.Parameter(torch.tensor(4.5951)).to(device)
+        self.threshold2 = torch.nn.Parameter(0*torch.rand(1,requires_grad=True)) # nn.Parameter(torch.tensor(5.2933)).to(device)
+        self.threshold_Xent = nn.Parameter(torch.tensor([0.0])).to(device) # torch.nn.Parameter(0*torch.rand(1,requires_grad=True)) 
         self.alpha = torch.tensor(5.0).to(device)
 		
     def forward(self, x1, x2):
@@ -79,84 +80,92 @@ class NeuralPlda(nn.Module):
         
 
     
-def train(args, model, device, train_loader, optimizer, epoch):    
+def train(args, model, device, train_loader, mega_xvec_dict, num_to_id_dict, optimizer, epoch, ):
     model.train()
     softcdets = []
     crossentropies = []
-    for batch_idx, (data1, data2, target) in enumerate(train_loader):    
+    for batch_idx, (data1, data2, target) in enumerate(train_loader):
         data1, data2, target = data1.to(device), data2.to(device), target.to(device)
+        data1_xvec, data2_xvec = load_xvec_from_batch(mega_xvec_dict, num_to_id_dict, data1, data2, device)
         optimizer.zero_grad()
-        output = model(data1, data2)
+        output = model(data1_xvec, data2_xvec)
         sigmoid = nn.Sigmoid()
-        loss1 = (sigmoid(model.alpha*(model.threshold1-output))*target).sum()/(target.sum()) + 99*(sigmoid(model.alpha*(output-model.threshold1))*(1-target)).sum()/((1-target).sum())
-        loss2 = (sigmoid(model.alpha*(model.threshold2-output))*target).sum()/(target.sum()) + 199*(sigmoid(model.alpha*(output-model.threshold2))*(1-target)).sum()/((1-target).sum())
-        loss_bce = F.binary_cross_entropy(sigmoid(output-model.threshold_Xent),target)
-        loss = loss_bce # Change to 0.5*(loss1+loss2) + 0.1*loss_bce #or # 0.5*(loss1+loss2) #When required
-        softcdets.append((loss1.item()+loss2.item())/2)
+        loss1 = (sigmoid(model.alpha * (model.threshold1 - output)) * target).sum() / (target.sum()) + 99 * (
+                sigmoid(model.alpha * (output - model.threshold1)) * (1 - target)).sum() / ((1 - target).sum())
+        loss2 = (sigmoid(model.alpha * (model.threshold2 - output)) * target).sum() / (target.sum()) + 199 * (
+                sigmoid(model.alpha * (output - model.threshold2)) * (1 - target)).sum() / ((1 - target).sum())
+        loss_bce = F.binary_cross_entropy(sigmoid(output - model.threshold_Xent), target)
+        loss = 0.5 * (loss1 + loss2)
+        #  + loss_bce # Change to  0.1*loss_bce #or # 0.5*(loss1+loss2) #When required
+        softcdets.append((loss1.item() + loss2.item()) / 2)
         crossentropies.append(loss_bce.item())
         loss.backward()
         optimizer.step()
-        
+        with open('logs/Thresholds_{}'.format(timestamp), 'a+') as f:
+            f.write('{}\t{}\t{}\t{}\t{}\n'.format(epoch, batch_idx, float(model.threshold1.data[0]), float(model.threshold2.data[0]),
+                                                  float(model.threshold_Xent.data[0])))
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\t SoftCdet: {:.6f}'.format(
                 epoch, batch_idx * len(data1), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), np.mean(softcdets)))
+                       100. * batch_idx / len(train_loader), np.mean(softcdets)))
             logging.info('Train Epoch: {} [{}/{} ({:.0f}%)]\t SoftCdet: {:.6f}'.format(
                 epoch, batch_idx * len(data1), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), np.mean(softcdets)))
+                       100. * batch_idx / len(train_loader), np.mean(softcdets)))
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\t Crossentropy: {:.6f}'.format(
                 epoch, batch_idx * len(data1), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), np.mean(crossentropies)))
+                       100. * batch_idx / len(train_loader), np.mean(crossentropies)))
             logging.info('Train Epoch: {} [{}/{} ({:.0f}%)]\t Crossentropy: {:.6f}'.format(
                 epoch, batch_idx * len(data1), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), np.mean(crossentropies)))
+                       100. * batch_idx / len(train_loader), np.mean(crossentropies)))
             softcdets = []
             crossentropies = []
-            
 
 
-def validate(args, model, device, data_loader):
+def validate(args, model, device, mega_xvec_dict, num_to_id_dict, data_loader):
     model.eval()
-    minC_threshold1, minC_threshold2, min_cent_threshold = compute_minc_threshold(args, model, device, data_loader)
+    minC_threshold1, minC_threshold2, min_cent_threshold = compute_minc_threshold(args, model, device, mega_xvec_dict,
+                                                                                  num_to_id_dict, data_loader)
     test_loss = 0
     correct = 0
     fa1 = 0
     miss1 = 0
     fa2 = 0
-    miss2 = 0    
+    miss2 = 0
     tgt_count = 0
     non_tgt_count = 0
     with torch.no_grad():
         for data1, data2, target in data_loader:
             data1, data2, target = data1.to(device), data2.to(device), target.to(device)
-            output = model(data1,data2)
+            data1_xvec, data2_xvec = load_xvec_from_batch(mega_xvec_dict, num_to_id_dict, data1, data2,
+                                                          device)  # mega_xvec_dict[num_to_id_dict[data1]], mega_xvec_dict[num_to_id_dict[data2]]
+            output = model(data1_xvec, data2_xvec)
             sigmoid = nn.Sigmoid()
-            test_loss += F.binary_cross_entropy(sigmoid(output-min_cent_threshold), target).item()
-            correct_preds = (((output-min_cent_threshold)>0).float()==target).float()
+            test_loss += F.binary_cross_entropy(sigmoid(output - min_cent_threshold), target).item()
+            correct_preds = (((output - min_cent_threshold) > 0).float() == target).float()
             correct += (correct_preds).sum().item()
             tgt_count += target.sum().item()
-            non_tgt_count += (1-target).sum().item()
-            fa1 += ((output>minC_threshold1).float()*(1-target)).sum().item()
-            miss1 += ((output<minC_threshold1).float()*target).sum().item()
-            fa2 += ((output>minC_threshold2).float()*(1-target)).sum().item()
-            miss2 += ((output<minC_threshold2).float()*target).sum().item()
-    Pmiss1 = miss1/tgt_count
-    Pfa1 = fa1/non_tgt_count
-    Cdet1 = Pmiss1 + 99*Pfa1
-    Pmiss2 = miss2/tgt_count
-    Pfa2 = fa2/non_tgt_count
-    Cdet2 = Pmiss2 + 199*Pfa2
-    Cdet = (Cdet1+Cdet2)/2
+            non_tgt_count += (1 - target).sum().item()
+            fa1 += ((output > minC_threshold1).float() * (1 - target)).sum().item()
+            miss1 += ((output < minC_threshold1).float() * target).sum().item()
+            fa2 += ((output > minC_threshold2).float() * (1 - target)).sum().item()
+            miss2 += ((output < minC_threshold2).float() * target).sum().item()
+    Pmiss1 = miss1 / tgt_count
+    Pfa1 = fa1 / non_tgt_count
+    Cdet1 = Pmiss1 + 99 * Pfa1
+    Pmiss2 = miss2 / tgt_count
+    Pfa2 = fa2 / non_tgt_count
+    Cdet2 = Pmiss2 + 199 * Pfa2
+    Cdet = (Cdet1 + Cdet2) / 2
     test_loss /= len(data_loader.dataset)
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.1f}%)\n'.format(
         test_loss, correct, len(data_loader.dataset),
         100. * correct / len(data_loader.dataset)))
-    print('\nTest set: Pfa1: {:.2f}\n'.format(Pfa1))
-    print('\nTest set: Pmiss1: {:.2f}\n'.format(Pmiss1))
-    print('\nTest set: Pfa2: {:.2f}\n'.format(Pfa2))
-    print('\nTest set: Pmiss2: {:.2f}\n'.format(Pmiss2))
-    print('\nTest set: C_det(149): {:.2f}\n'.format(Cdet))
-    
+    print('\nTest set: Pfa1: {:.4f}\n'.format(Pfa1))
+    print('\nTest set: Pmiss1: {:.4f}\n'.format(Pmiss1))
+    print('\nTest set: Pfa2: {:.4f}\n'.format(Pfa2))
+    print('\nTest set: Pmiss2: {:.4f}\n'.format(Pmiss2))
+    print('\nTest set: C_det(149): {:.4f}\n'.format(Cdet))
+
     logging.info('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.1f}%)\n'.format(
         test_loss, correct, len(data_loader.dataset),
         100. * correct / len(data_loader.dataset)))
@@ -169,18 +178,20 @@ def validate(args, model, device, data_loader):
 
 
 
-def compute_minc_threshold(args, model, device, data_loader):
-    device1=torch.device('cpu')
+def compute_minc_threshold(args, model, device, mega_xvec_dict, num_to_id_dict, data_loader):
+    device1 = torch.device('cpu')
     model = model.to(device1)
     with torch.no_grad():
         targets, scores = np.asarray([]), np.asarray([])
         for data1, data2, target in data_loader:
             data1, data2, target = data1.to(device1), data2.to(device1), target.to(device1)
+            data1_xvec, data2_xvec = load_xvec_from_batch(mega_xvec_dict, num_to_id_dict, data1, data2, device1)
             targets = np.concatenate((targets, np.asarray(target)))
-            scores = np.concatenate((scores, np.asarray(model.forward(data1,data2))))
-    minC_threshold1, minC_threshold2, min_cent_threshold = get_cmn2_thresholds(scores,targets)
+            scores = np.concatenate((scores, np.asarray(model.forward(data1_xvec, data2_xvec))))
+    minC_threshold1, minC_threshold2, min_cent_threshold = get_cmn2_thresholds(scores, targets)
     model = model.to(device)
     return minC_threshold1, minC_threshold2, min_cent_threshold
+
 
 
 def score_18_eval(sre18_eval_trials_file_path, model, device, sre18_eval_xv_pairs_1, sre18_eval_xv_pairs_2):
@@ -217,7 +228,7 @@ def main_kaldiplda():
                         help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')
-    parser.add_argument('--log-interval', type=int, default=100, metavar='N',
+    parser.add_argument('--log-interval', type=int, default=500, metavar='N',
                         help='how many batches to wait before logging training status')
     
     parser.add_argument('--save-model', action='store_true', default=True,
@@ -226,7 +237,7 @@ def main_kaldiplda():
     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
     torch.manual_seed(args.seed)
-
+    np.random.seed(args.seed)
     
     logging.info("Started at {}\n\n New class. GPU. 3 thresholds. Random init. Batch size = 2048. Threshold not updated after epoch \n\n ".format(datetime.now()))
 
@@ -237,60 +248,71 @@ def main_kaldiplda():
     # Generating training data loaders here
     ###########################################################################
     
-    datasets=[]
-    
-    data_dir_list = np.asarray([['/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre2004/male','5'],
-                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre2004/female','5'],
-                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre_2005_2006_08/male','7'],
-                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre_2005_2006_08/female','7'],
-                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre10/male','10'],
-                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre10/female','10'],
-                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/swbd/male','2'],
-                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/swbd/female','2'],
-                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/mx6/grepd/male','4'],
-                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/mx6/grepd/female','5']])
-    
+    datasets = []
+    mega_xvec_dict = pickle.load(open('pickled_files/mega_xvec_dict.pkl', 'rb'))
+    num_to_id_dict = {i: j for i, j in enumerate(list(mega_xvec_dict))}
+    id_to_num_dict = {v: k for k, v in num_to_id_dict.items()}
 
-    xvector_scp_list = np.asarray(['/home/data2/SRE2019/prashantk/voxceleb/v2/exp/xvector_nnet_1a/xvectors_swbd/xvector_fullpaths.scp',
-                                   '/home/data2/SRE2019/prashantk/voxceleb/v2/exp/xvector_nnet_1a/xvectors_sre/xvector_fullpaths.scp',
-                                   '/home/data2/SRE2019/prashantk/voxceleb/v2/exp/xvector_nnet_1a/xvectors_mx6/xvector_fullpaths.scp'])
+    data_dir_list = np.asarray([['/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre2004/male', '5'],
+                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre2004/female', '5'],
+                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre_2005_2006_08/male', '7'],
+                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre_2005_2006_08/female', '7'],
+                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre10/male', '10'],
+                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre10/female', '10'],
+                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/swbd/male', '2'],
+                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/swbd/female', '2'],
+                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/mx6/grepd/male', '4'],
+                                ['/home/data2/SRE2019/prashantk/voxceleb/v3/data/mx6/grepd/female', '5']])
 
-    train_set = get_train_dataset(data_dir_list, xvector_scp_list, batch_size=2048)
+    xvector_scp_list = np.asarray(
+        ['/home/data2/SRE2019/prashantk/voxceleb/v2/exp/xvector_nnet_1a/xvectors_swbd/xvector_fullpaths.scp',
+         '/home/data2/SRE2019/prashantk/voxceleb/v2/exp/xvector_nnet_1a/xvectors_sre/xvector_fullpaths.scp',
+         '/home/data2/SRE2019/prashantk/voxceleb/v2/exp/xvector_nnet_1a/xvectors_mx6/xvector_fullpaths.scp'])
+
+    train_set = get_train_dataset(data_dir_list, xvector_scp_list, id_to_num_dict, batch_size=2048)
     datasets.append(train_set)
-    
-    
+
     # NOTE: 'xvectors.pkl' files are generated using utils/Kaldi2NumpyUtils/kaldivec2numpydict.py
-    
+
     trial_file_path = "/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre18_dev_test/trials"
     enroll_spk2utt_path = "/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre18_dev_enrollment/spk2utt"
     enroll_xvector_path = "/home/data2/SRE2019/prashantk/voxceleb/v2/exp/xvector_nnet_1a/xvectors_sre18_dev_enrollment/xvectors.pkl"
     test_xvector_path = "/home/data2/SRE2019/prashantk/voxceleb/v2/exp/xvector_nnet_1a/xvectors_sre18_dev_test/xvectors.pkl"
-    enroll_spk2xvector = get_spk2xvector(enroll_spk2utt_path,enroll_xvector_path)
-    test_xvectors = pickle.load(open(test_xvector_path,'rb'))
-    sre18_dev_trials_loader = dataloader_from_trial(trial_file_path, enroll_spk2xvector, test_xvectors, batch_size = 2048, shuffle=True)
-    sre18_dev_xv_pairs_1,sre18_dev_xv_pairs_2 = xv_pairs_from_trial(trial_file_path, enroll_spk2xvector, test_xvectors)
-    
+    enroll_spk2xvector = get_spk2xvector(enroll_spk2utt_path, enroll_xvector_path)
+    test_xvectors = pickle.load(open(test_xvector_path, 'rb'))
+    #    mega_xvec_dict.update(enroll_spk2xvector)
+    #    mega_xvec_dict.update(test_xvectors)
+    sre18_dev_trials_loader = dataloader_from_trial(trial_file_path, id_to_num_dict, batch_size=2048, shuffle=True)
+    sre18_dev_xv_pairs_1, sre18_dev_xv_pairs_2 = xv_pairs_from_trial(trial_file_path, enroll_spk2xvector, test_xvectors)
 
     trial_file_path = "/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre16_eval_test/trials"
-    enroll_spk2utt_path="/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre16_eval_enrollment/spk2utt"
-    enroll_xvector_path="/home/data2/SRE2019/prashantk/voxceleb/v2/exp/xvector_nnet_1a/xvectors_sre16_eval_enrollment/xvectors.pkl"
-    test_xvector_path="/home/data2/SRE2019/prashantk/voxceleb/v2/exp/xvector_nnet_1a/xvectors_sre16_eval_test/xvectors.pkl"
-    enroll_spk2xvector = get_spk2xvector(enroll_spk2utt_path,enroll_xvector_path)
-    test_xvectors = pickle.load(open(test_xvector_path,'rb'))
-    sre16_eval_trials_dataset = dataset_from_trial(trial_file_path, enroll_spk2xvector, test_xvectors, batch_size = 2048, shuffle=True)
+    #    enroll_spk2utt_path="/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre16_eval_enrollment/spk2utt"
+    #    enroll_xvector_path="/home/data2/SRE2019/prashantk/voxceleb/v2/exp/xvector_nnet_1a/xvectors_sre16_eval_enrollment/xvectors.pkl"
+    #    test_xvector_path="/home/data2/SRE2019/prashantk/voxceleb/v2/exp/xvector_nnet_1a/xvectors_sre16_eval_test/xvectors.pkl"
+    #    enroll_spk2xvector = get_spk2xvector(enroll_spk2utt_path,enroll_xvector_path)
+    #    test_xvectors = pickle.load(open(test_xvector_path,'rb'))
+    #    mega_xvec_dict.update(enroll_spk2xvector)
+    #    mega_xvec_dict.update(test_xvectors)
+    sre16_eval_trials_dataset = dataset_from_trial(trial_file_path, id_to_num_dict, batch_size=2048, shuffle=True)
     datasets.append(sre16_eval_trials_dataset)
 
-        
     trials_08, enroll_xvectors_08, enroll_model2xvector_08, all_utts_dict_08 = get_sre08_trials_etc()
-    sre08_dataset = dataset_from_sre08_10_trial(trials_08, enroll_model2xvector_08, enroll_xvectors_08, all_utts_dict_08, batch_size = 2048, shuffle=True)
-    
+    sre08_dataset = dataset_from_sre08_10_trial(trials_08, id_to_num_dict, all_utts_dict_08, batch_size=2048,
+                                                shuffle=True)
+    #    mega_xvec_dict.update(enroll_model2xvector_08)
+    #    mega_xvec_dict.update(enroll_xvectors_08)
     datasets.append(sre08_dataset)
-    
+
     trials_10, enroll_xvectors_10, enroll_model2xvector_10, all_utts_dict_10 = get_sre10_trials_etc()
-    sre10_dataset = dataset_from_sre08_10_trial(trials_10, enroll_model2xvector_10, enroll_xvectors_10, all_utts_dict_10, batch_size = 2048, shuffle=True)
+    sre10_dataset = dataset_from_sre08_10_trial(trials_10, id_to_num_dict, all_utts_dict_10, batch_size=2048,
+                                                shuffle=True)
+    #    mega_xvec_dict.update(enroll_model2xvector_10)
+    #    mega_xvec_dict.update(enroll_xvectors_10)
     datasets.append(sre10_dataset)
-    
-    train_loader = concatenate_datasets(datasets,batch_size=2048)
+
+    #    pickle.dump(mega_xvec_dict, open('pickled_files/mega_xvec_dict.pkl','wb'))
+
+    train_loader = concatenate_datasets(datasets, batch_size=2048)
     
     ###########################################################################
     # Fishished generating training data loaders
@@ -303,7 +325,7 @@ def main_kaldiplda():
     # model = pickle.load(open('/home/data2/SRE2019/shreyasr/X/models/kaldi_pldaNet_sre0410_swbd_16_16.swbdsremx6epoch.1571651491.pt','rb'))
     
     ## To load a Kaldi trained PLDA model, Specify the paths of 'mean.vec', 'transform.mat' and 'plda' generated from stage 8 of https://github.com/kaldi-asr/kaldi/blob/master/egs/sre16/v2/run.sh 
-    # model.LoadPldaParamsFromKaldi('../../prashantk/voxceleb/v2/exp/xvector_nnet_1a/xvectors_swbd_sre_mx6/mean.vec', '../../prashantk/voxceleb/v2/exp/xvector_nnet_1a/xvectors_swbd_sre_mx6/transform.mat','../../prashantk/voxceleb/v2/exp/xvector_nnet_1a/xvectors_swbd_sre_mx6/plda')
+    model.LoadPldaParamsFromKaldi('Kaldi_Models/mean.vec', 'Kaldi_Models/transform.mat','Kaldi_Models/plda')
     
 
     sre18_dev_trials_file_path = "/home/data/SRE2019/LDC2019E59/dev/docs/sre18_dev_trials.tsv"
@@ -315,15 +337,18 @@ def main_kaldiplda():
     
     print("SRE18_Dev Trials:")
     logging.info("SRE16_18_dev_eval Trials:")
-    valloss, minC_threshold1, minC_threshold2, min_cent_threshold  = validate(args, model, device, sre18_dev_trials_loader)
+    #bp()
+    valloss, minC_threshold1, minC_threshold2, min_cent_threshold = validate(args, model, device, mega_xvec_dict,
+                                                                             num_to_id_dict, sre18_dev_trials_loader)
     all_losses.append(valloss)
 
     
     for epoch in range(1, args.epochs + 1):
-        train(args, model, device, train_loader, optimizer, epoch)
+        train(args, model, device, train_loader, mega_xvec_dict, num_to_id_dict, optimizer, epoch)
         print("SRE16_18_dev_eval Trials:")
         logging.info("SRE16_18_dev_eval Trials:")
-        valloss, minC_threshold1, minC_threshold2, min_cent_threshold  = validate(args, model, device, sre18_dev_trials_loader)
+        valloss, minC_threshold1, minC_threshold2, min_cent_threshold = validate(args, model, device, mega_xvec_dict,
+                                                                             num_to_id_dict, sre18_dev_trials_loader)
         all_losses.append(valloss)
         model.SaveModel("models/kaldi_pldaNet_sre0410_swbd_16_{}.swbdsremx6epoch.{}.pt".format(epoch,timestamp))
         print("Generating scores for Epoch ",epoch)       

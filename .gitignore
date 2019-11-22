@@ -1,4 +1,8 @@
 **/logs
 **/scores
 **/models
+**/pickled_files
 logs/*
+scores/*
+models/*
+pickled_files/*
