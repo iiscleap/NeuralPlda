@@ -6,3 +6,4 @@ logs/*
 scores/*
 models/*
 pickled_files/*
+utils/__pycache__/*
