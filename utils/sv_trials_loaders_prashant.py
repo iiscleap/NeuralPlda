@@ -10,8 +10,9 @@ import torch.utils.data as utils
 from pdb import set_trace as bp
 
 
-def make_same_speaker_list(spk2utt_file, same_speaker_list_file=None, n_repeats=1, train_and_valid=False,train_ratio=0.9):
-    assert train_ratio < 1, "train_ratio should be less than 1."
+def make_same_speaker_list(spk2utt_file, same_speaker_list_file=None, n_repeats=1, train_and_valid=False,
+                           train_ratio=0.9):
+    assert train_ratio < 1,  "train_ratio should be less than 1."
     with open(spk2utt_file) as f:
         spk2utt_list = f.readlines()
 
@@ -29,8 +30,8 @@ def make_same_speaker_list(spk2utt_file, same_speaker_list_file=None, n_repeats=
                 for i in range(0, len(utts_shuffled) - 1, 2):
                     train_same_speaker_list.append([utts_shuffled[i].strip('\n'), utts_shuffled[i + 1].strip('\n')])
         train_same_speaker_list = np.asarray(train_same_speaker_list)
-        valid_uttsperspk = uttsperspk[int((train_ratio) * len(uttsperspk)):]
 
+        valid_uttsperspk = uttsperspk[int((train_ratio) * len(uttsperspk)):]
         valid_same_speaker_list = []
         for repeats in range(n_repeats):
             for utts in valid_uttsperspk:
@@ -57,31 +58,18 @@ def make_same_speaker_list(spk2utt_file, same_speaker_list_file=None, n_repeats=
         return same_speaker_list;
 
 
-def make_diff_speaker_list(spk2utt_file, diff_speaker_list_file=None, n_repeats=1, train_and_valid=True,
+def make_diff_speaker_list(utt2spk_file, diff_speaker_list_file=None, n_repeats=1, train_and_valid=False,
                            train_ratio=0.9):
     assert train_ratio < 1, "train_ratio should be less than 1."
-    with open(spk2utt_file) as f:
-        spk2utt_list = f.readlines()
-    spk2utt_dict = {x.split(' ', 1)[0]: x.rstrip('\n').split(' ', 1)[1].split(' ') for x in spk2utt_list}
-    spk2utt_keys = list(spk2utt_dict.keys())
-    train_keys = spk2utt_keys[:int(train_ratio * len(spk2utt_keys))]
-    valid_keys = spk2utt_keys[int(train_ratio * len(spk2utt_keys)):]
-    utt2spk_train = []
-    utt2spk_valid = []
-    for i in train_keys:
-        for j in spk2utt_dict[i]:
-            utt2spk_train.append([j, i])
-    for i in valid_keys:
-        for j in spk2utt_dict[i]:
-            utt2spk_valid.append([j, i])
-    # utt2spk = np.genfromtxt(utt2spk_file, dtype='str')
-    # random.shuffle(utt2spk)
+    bp()
+    utt2spk = np.genfromtxt(utt2spk_file, dtype='str')
+    random.shuffle(utt2spk)
 
     if train_and_valid:  # Returns two lists for training and validation
-        # train_utt2spk = utt2spk[:int(train_ratio * len(utt2spk))]
+        train_utt2spk = utt2spk[:int(train_ratio * len(utt2spk))]
         train_diff_speaker_list = []
         for repeats in range(n_repeats):
-            utt2spk_list = list(utt2spk_train)
+            utt2spk_list = list(train_utt2spk)
             random.shuffle(utt2spk_list)
             i = 0
             while len(utt2spk_list) >= 2:
@@ -96,9 +84,10 @@ def make_diff_speaker_list(spk2utt_file, diff_speaker_list_file=None, n_repeats=
                     if i == 50:
                         break
 
+        valid_utt2spk = utt2spk[:int((1 - train_ratio) * len(utt2spk))]
         valid_diff_speaker_list = []
         for repeats in range(n_repeats):
-            utt2spk_list = list(utt2spk_valid)
+            utt2spk_list = list(valid_utt2spk)
             random.shuffle(utt2spk_list)
             i = 0
             while len(utt2spk_list) >= 2:
@@ -118,7 +107,7 @@ def make_diff_speaker_list(spk2utt_file, diff_speaker_list_file=None, n_repeats=
     else:
         diff_speaker_list = []
         for repeats in range(n_repeats):
-            utt2spk_list = list(spk2utt_list)
+            utt2spk_list = list(utt2spk)
             random.shuffle(utt2spk_list)
             i = 0
             while len(utt2spk_list) >= 2:
@@ -174,10 +163,6 @@ def get_enrollmodel2xvector(enroll_spk2utt_path, enroll_xvector_path):
                 spk2xvector[arr[0]] = avg_xvector
     return spk2xvector
 
-def generate_scores_from_plda(mean_vec_path, transform_mat_path, plda_path, score_file_path, trials_path, xvector_scp_path, spk2utt_path, num_utts_path):
-    subprocess.call(
-        ['bash', '/home/data2/SRE2019/prashantk/voxceleb/v2/gen_scores_wrapper.sh', mean_vec_path, transform_mat_path,
-         plda_path, score_file_path, trials_path, xvector_scp_path, spk2utt_path, num_utts_path])
 
 def kaldivec2numpydict(inArkOrScpFile, outpicklefile=''):
     # This function converts a Kaldi vector file into a dictionary with numpy arrays of the vector as the dictionary values
@@ -284,8 +269,8 @@ def dataset_from_list(pair_list, id_to_num_dict, batch_size=64, shuffle=True, tr
         # return dataset
 
 
-
-def dataset_from_trial(trial_file_path, id_to_num_dict, batch_size=256, shuffle=True, train_and_valid = False, train_ratio = 0.95):
+def dataset_from_trial(trial_file_path, id_to_num_dict, batch_size=256, shuffle=True, train_and_valid=False,
+                       train_ratio=0.95):
     x1_arr, x2_arr = [], []
     y_arr = []
     with open(trial_file_path) as fp:
@@ -327,6 +312,7 @@ def dataset_from_trial(trial_file_path, id_to_num_dict, batch_size=256, shuffle=
         return trainset, valset
     # return dataset
 
+
 def concatenate_datasets(datasets_list, batch_size=4096):
     combined_dataset = utils.ConcatDataset(datasets_list)
     data_loader = utils.DataLoader(combined_dataset, batch_size=batch_size, shuffle=True)
@@ -359,6 +345,7 @@ def dataloader_from_sre08_10_trial(trials, enroll_model2xvector, test_xvectors, 
     trial_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
     return trial_loader  # tensor_X1, tensor_X2 , np.asarray(y_arr)
 
+
 def dataloader_from_sre18_dev_vast_trial(trials, enroll_model2xvector, test_xvectors, utts_dict, batch_size=2048,
                                          shuffle=True):
     x1_arr, x2_arr = [], []
@@ -385,6 +372,12 @@ def dataloader_from_sre18_dev_vast_trial(trials, enroll_model2xvector, test_xvec
     trial_loader = utils.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
     return trial_loader
 
+
+def generate_scores_from_plda(mean_vec_path, transform_mat_path, plda_path, score_file_path, trials_path,
+                              xvector_scp_path, num_utts_path):
+    subprocess.call(
+        ['bash', '/home/data2/SRE2019/prashantk/voxceleb/v2/gen_scores_wrapper.sh', mean_vec_path, transform_mat_path,
+         plda_path, score_file_path, trials_path, xvector_scp_path, num_utts_path])
 
 
 def dataset_from_sre08_10_trial(trials, id_to_num_dict, utts_dict, batch_size=2048, shuffle=True, train_and_valid=False,
@@ -513,7 +506,6 @@ def get_train_valid_loader(data_dir_list, xvec_list, batch_size=64):
 
 
 def get_train_dataset(data_dir_list, xvec_list, id_to_num_dict, batch_size=64, train_and_valid=False, train_ratio=0.95):
-
     #    Make sure that each data dir in data_dir_list is of same gender, same source, same language, etc. More Matching Metadata --> Better the model training.
 
     #    Can also specify the num_repeats after the dir name followed with tab separation in 2 column format. If not specified, default num_repeats is set to 1.
@@ -530,37 +522,22 @@ def get_train_dataset(data_dir_list, xvec_list, id_to_num_dict, batch_size=64, t
     if type(xvec_list) == str:
         xvec_list = np.genfromtxt()
 
-
-    mega_list_train = []
-    mega_list_valid = []
+    mega_list = []
 
     for i, d in enumerate(data_dir_list):
-        same_train_list, same_valid_list = make_same_speaker_list(os.path.join(d, 'spk2utt'), n_repeats=num_repeats_list[i],
-                                           train_and_valid=True)
-        diff_train_list, diff_valid_list = make_diff_speaker_list(os.path.join(d, 'spk2utt'), n_repeats=10 * num_repeats_list[i],
-                                           train_and_valid=True)
+        same_list = make_same_speaker_list(os.path.join(d, 'spk2utt'), n_repeats=num_repeats_list[i],
+                                           train_and_valid=False)
+        diff_list = make_diff_speaker_list(os.path.join(d, 'utt2spk'), n_repeats=10 * num_repeats_list[i],
+                                           train_and_valid=False)
 
-        zeros = np.zeros((diff_train_list.shape[0], 1)).astype(int)
-        ones = np.ones((same_train_list.shape[0], 1)).astype(int)
-        same_list_with_label_train = np.concatenate((same_train_list, ones), axis=1)
-        diff_list_with_label_train = np.concatenate((diff_train_list, zeros), axis=1)
-        zeros = np.zeros((diff_valid_list.shape[0], 1)).astype(int)
-        ones = np.ones((same_valid_list.shape[0], 1)).astype(int)
-        same_list_with_label_valid = np.concatenate((same_valid_list, ones), axis=1)
-        diff_list_with_label_valid = np.concatenate((diff_valid_list, zeros), axis=1)
-        concat_pair_list_train = np.concatenate((same_list_with_label_train, diff_list_with_label_train))
-        concat_pair_list_valid = np.concatenate((same_list_with_label_valid, diff_list_with_label_valid))
+        zeros = np.zeros((diff_list.shape[0], 1)).astype(int)
+        ones = np.ones((same_list.shape[0], 1)).astype(int)
+        same_list_with_label = np.concatenate((same_list, ones), axis=1)
+        diff_list_with_label = np.concatenate((diff_list, zeros), axis=1)
+        concat_pair_list = np.concatenate((same_list_with_label, diff_list_with_label))
 
-        np.random.shuffle(concat_pair_list_train)
-        mega_list_train.extend(concat_pair_list_train)
-
-        np.random.shuffle(concat_pair_list_valid)
-        mega_list_valid.extend(concat_pair_list_valid)
-        train_set = dataset_from_list(mega_list_train, id_to_num_dict, batch_size=batch_size, shuffle=True,
-                                      train_and_valid=False, train_ratio=0.9)
-        valid_set = dataset_from_list(mega_list_valid, id_to_num_dict, batch_size=batch_size, shuffle=True,
-                                      train_and_valid=False, train_ratio=0.9)
-        return train_set, valid_set
+        np.random.shuffle(concat_pair_list)
+        mega_list.extend(concat_pair_list)
 
     #    xvec_dict = {}
     #    for arkOrScpFile in xvec_list:
@@ -568,15 +545,14 @@ def get_train_dataset(data_dir_list, xvec_list, id_to_num_dict, batch_size=64, t
     #        xvec_dict.update(res)
 
     #    print(len(mega_list))
-    # if train_and_valid:
-    #     train_set, val_set = dataset_from_list(mega_list, id_to_num_dict, batch_size=batch_size, shuffle=True,
-    #                                            train_and_valid=train_and_valid, train_ratio=train_ratio)
-    #     return train_set, val_set
-    # else:
-    #     train_set = dataset_from_list(mega_list, id_to_num_dict, batch_size=batch_size, shuffle=True,
-    #                                   train_and_valid=train_and_valid, train_ratio=train_ratio)
-    #     return train_set
-
+    if train_and_valid:
+        train_set, val_set = dataset_from_list(mega_list, id_to_num_dict, batch_size=batch_size, shuffle=True,
+                                               train_and_valid=train_and_valid, train_ratio=train_ratio)
+        return train_set, val_set
+    else:
+        train_set = dataset_from_list(mega_list, id_to_num_dict, batch_size=batch_size, shuffle=True,
+                                      train_and_valid=train_and_valid, train_ratio=train_ratio)
+        return train_set
 
 
 def xv_pairs_from_trial(trials_file, enroll_spk2xvector, test_xvectors):
