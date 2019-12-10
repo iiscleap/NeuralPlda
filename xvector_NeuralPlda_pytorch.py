@@ -139,10 +139,7 @@ def train(args, model, device, train_loader, valid_loader, mega_xvec_dict, num_t
         loss.backward()
         optimizer.step()
         with open('logs/Thresholds_{}'.format(timestamp), 'a+') as f:
-            f.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(epoch, batch_idx, float(model.threshold1.data[0]),
-                                                                  float(model.threshold2.data[0]),
-                                                                  float(model.threshold_Xent.data[0]), minC_threshold1,
-                                                                  minC_threshold2, meansoftcdet, nbatchCdet))
+            f.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(epoch, batch_idx, float(model.threshold1.data[0]), float(model.threshold2.data[0]), float(model.threshold_Xent.data[0]), minC_threshold1, minC_threshold2, meansoftcdet, nbatchCdet))
         if batch_idx % args.log_interval == 0:
 #            bp()
             meansoftcdet = np.mean(softcdets)
