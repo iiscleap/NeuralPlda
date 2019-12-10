@@ -8,3 +8,6 @@ models/*
 pickled_files/*
 utils/__pycache__/*
 scores_*
+*ark
+*txt
+valid_*
