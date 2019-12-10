@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import re
+
 import numpy as np
 import random
 import sys
@@ -437,6 +439,45 @@ def load_xvec_from_batch(mega_xvec_dict, num_to_id_dict, data1, data2, device):
     tensor_X2 = torch.from_numpy(np.asarray(data2_xvec)).float().to(device)
     return tensor_X1, tensor_X2
 
+def valid_trials_wrapper(combined_dataset_valid, num_to_id_dict, mega_xvec_dict):
+    val_loader = torch.utils.data.DataLoader(combined_dataset_valid, batch_size=len(combined_dataset_valid))
+    for a, b, c in val_loader:
+        enr, test, labels = a, b, c
+    trials = (np.c_[enr, test, labels]).astype(int)
+    dev_utts = np.unique(trials[:, :2].ravel())
+    trials = trials.astype(int).astype(str).astype('<U29')
+    tgt = {'1': 'target', '0': 'nontarget'}
+    for a in trials:
+        a[0], a[1], a[2] = num_to_id_dict[int(a[0])], num_to_id_dict[int(a[1])], tgt[a[2]]
+    xvec_txt = np.asarray([re.sub(' +', ' ',
+                                  "{} {}".format(num_to_id_dict[i], mega_xvec_dict[num_to_id_dict[i]]).replace('[',
+                                                                                                               '[ ').replace(
+                                      ']', ' ]').replace('\n', ' ')) for i in dev_utts])
+    #    bp()
+    np.savetxt('valid_trials', trials, fmt='%s', delimiter=' ', comments='')
+    np.savetxt('valid_xvector.txt', xvec_txt, fmt='%s', delimiter=' ', comments='')
+    fin = subprocess.check_output(
+        ["copy-vector", "ark,t:{}".format('valid_xvector.txt'), "ark,scp:valid_xvector.ark,valid_xvector.scp"])
+    valid_xvector_scp = np.genfromtxt('valid_xvector.scp', dtype='str')
+    num_utts = np.ones((valid_xvector_scp.shape[0], 2), dtype='<U35')
+    num_utts[:, 0] = valid_xvector_scp[:, 0]
+    np.savetxt('num_utts.ark', num_utts, fmt='%s', delimiter=' ', comments='')
+    spk2utt = np.zeros((valid_xvector_scp.shape[0], 2), dtype='<U35')
+    spk2utt[:, 0] = valid_xvector_scp[:, 0]
+    spk2utt[:, 1] = valid_xvector_scp[:, 0]
+    np.savetxt('valid_spk2utt', spk2utt, fmt='%s', delimiter=' ', comments='')
+    valid_trials_score = trials[:]
+    a = np.repeat(["a"],trials.shape[0])
+    valid_trials_score[:,2] = a
+    np.savetxt('valid_trials_score',valid_trials_score,fmt='%s',delimiter='\t',header='modelid  segmentid   side',comments="")
+    ones = np.repeat(["1"],trials.shape[0])
+    N = np.repeat(["N"], trials.shape[0])
+    male = np.repeat(["male"], trials.shape[0])
+    voip = np.repeat(["voip"], trials.shape[0])
+    cmn2 = np.repeat(["cmn2"], trials.shape[0])
+    trials = np.genfromtxt('valid_trials', dtype='str')
+    trial_key = np.c_[trials[:,0],trials[:,1],a,trials[:,2],ones,N,male,voip,cmn2]
+    np.savetxt('valid_trial_key',trial_key,fmt="%s",delimiter='\t',header='modelid	segmentid	side	targettype	num_enroll_segs	phone_num_match	gender	source_type	data_source',comments="")
 
 def dataloader_from_trials_list(trial_file_paths_list, enroll_spk2xvectors_list, test_xvectors_list, batch_size=2048,
                                 shuffle=True):

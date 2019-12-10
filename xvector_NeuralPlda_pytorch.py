@@ -23,7 +23,7 @@ from pdb import set_trace as bp
 
 from utils.sv_trials_loaders import dataloader_from_trial, get_spk2xvector, generate_scores_from_net, \
     generate_scores_in_batches, xv_pairs_from_trial, concatenate_datasets, get_train_dataset, dataset_from_trial, \
-    dataset_from_sre08_10_trial, load_xvec_from_batch, generate_scores_from_plda
+    dataset_from_sre08_10_trial, load_xvec_from_batch, generate_scores_from_plda, valid_trials_wrapper
 from utils.calibration import get_cmn2_thresholds
 from utils.Kaldi2NumpyUtils.kaldiPlda2numpydict import kaldiPlda2numpydict
 
@@ -379,22 +379,8 @@ def main_kaldiplda():
 
     
     combined_dataset_valid = torch.utils.data.ConcatDataset(datasets_valid)
-    
-#     val_loader = torch.utils.data.DataLoader(combined_dataset_valid, batch_size=len(combined_dataset_valid))
-#     for a,b,c in val_loader:
-#         enr,test,labels=a,b,c
-#     trials = (np.c_[enr,test,labels]).astype(int)
-#     dev_utts = np.unique(trials[:,:2].ravel())
-#     trials = trials.astype(int).astype(str).astype('<U29')
-#     tgt = {'1':'target', '0':'nontarget'}
-#     bp()
-#     for a in trials:
-#         a[0],a[1],a[2] = num_to_id_dict[int(a[0])],num_to_id_dict[int(a[1])],tgt[a[2]]
-#     xvec_txt = np.asarray([re.sub(' +',' ',"{} {}".format(num_to_id_dict[i],mega_xvec_dict[num_to_id_dict[i]]).replace('[','[ ').replace(']',' ]').replace('\n',' ')) for i in dev_utts])
-# #    bp()
-#     np.savetxt('valid_trials_new',trials,fmt='%s',delimiter=' ',comments='')
-#     np.savetxt('valid_xvector_new.txt',xvec_txt,fmt='%s',delimiter=' ',comments='')
 
+    valid_trials_wrapper(combined_dataset_valid,num_to_id_dict,mega_xvec_dict)
 
     train_loader = concatenate_datasets(datasets_train, batch_size=4096)
     valid_loader = concatenate_datasets(datasets_valid, batch_size=4096)
@@ -484,13 +470,13 @@ def main_kaldiplda():
 
 if __name__ == '__main__':
     main_kaldiplda()
-    # generate_scores_from_plda('/home/data2/shreyasr/NeuralPlda/Kaldi_Models/mean.vec',
-    #                           '/home/data2/shreyasr/NeuralPlda/Kaldi_Models/transform.mat',
-    #                           '/home/data2/shreyasr/NeuralPlda/Kaldi_Models/plda', 'scoring_valid_set_2',
-    #                           '/home/data2/shreyasr/NeuralPlda/valid_trials_new',
-    #                           '/home/data2/shreyasr/NeuralPlda/valid_xvector.scp',
-    #                           '/home/data2/shreyasr/NeuralPlda/valid_spk2utt',
-    #                           '/home/data2/shreyasr/NeuralPlda/num_utts.ark')
+    generate_scores_from_plda('/home/data2/shreyasr/NeuralPlda/Kaldi_Models/mean.vec',
+                              '/home/data2/shreyasr/NeuralPlda/Kaldi_Models/transform.mat',
+                              '/home/data2/shreyasr/NeuralPlda/Kaldi_Models/plda', 'scoring_valid_set_2',
+                              '/home/data2/shreyasr/NeuralPlda/valid_trials_new',
+                              '/home/data2/shreyasr/NeuralPlda/valid_xvector.scp',
+                              '/home/data2/shreyasr/NeuralPlda/valid_spk2utt',
+                              '/home/data2/shreyasr/NeuralPlda/num_utts.ark')
 
 #    main_score_eval()
 #    finetune('models/kaldi_pldaNet_sre0410_swbd_16_1.swbdsremx6epoch.1571827115.pt')
