@@ -335,6 +335,7 @@ def main_kaldiplda():
     train_set, val_set = get_train_dataset(data_dir_list, xvector_scp_list, id_to_num_dict, batch_size=4096, train_and_valid=True, train_ratio=0.95)
     datasets_train.append(train_set)
     datasets_valid.append(val_set)
+    bp()
 
     # NOTE: 'xvectors.pkl' files are generated using utils/Kaldi2NumpyUtils/kaldivec2numpydict.py
 
@@ -378,9 +379,9 @@ def main_kaldiplda():
     #    pickle.dump(mega_xvec_dict, open('pickled_files/mega_xvec_dict.pkl','wb'))
 
     
-    combined_dataset_valid = torch.utils.data.ConcatDataset(datasets_valid)
+    # combined_dataset_valid = torch.utils.data.ConcatDataset(datasets_valid)
 
-    valid_trials_wrapper(combined_dataset_valid,num_to_id_dict,mega_xvec_dict)
+    # valid_trials_wrapper(combined_dataset_valid,num_to_id_dict,mega_xvec_dict)
 
     train_loader = concatenate_datasets(datasets_train, batch_size=4096)
     valid_loader = concatenate_datasets(datasets_valid, batch_size=4096)

@@ -16,12 +16,13 @@ def make_same_speaker_list(spk2utt_file, same_speaker_list_file=None, n_repeats=
     assert train_ratio < 1, "train_ratio should be less than 1."
     with open(spk2utt_file) as f:
         spk2utt_list = f.readlines()
+    random.seed(2)
+    random.shuffle(spk2utt_list)
 
     uttsperspk = [(a.split(' ', 1)[1]).split(' ') for a in spk2utt_list]
     # random.shuffle(uttsperspk)
 
     if train_and_valid:  # Returns two lists for training and validation
-
         train_uttsperspk = uttsperspk[:int(train_ratio * len(uttsperspk))]
         train_same_speaker_list = []
         for repeats in range(n_repeats):
@@ -64,6 +65,8 @@ def make_diff_speaker_list(spk2utt_file, diff_speaker_list_file=None, n_repeats=
     assert train_ratio < 1, "train_ratio should be less than 1."
     with open(spk2utt_file) as f:
         spk2utt_list = f.readlines()
+    random.seed(2)
+    random.shuffle(spk2utt_list)
     spk2utt_dict = {x.split(' ', 1)[0]: x.rstrip('\n').split(' ', 1)[1].split(' ') for x in spk2utt_list}
     spk2utt_keys = list(spk2utt_dict.keys())
     train_keys = spk2utt_keys[:int(train_ratio * len(spk2utt_keys))]
@@ -597,11 +600,11 @@ def get_train_dataset(data_dir_list, xvec_list, id_to_num_dict, batch_size=64, t
 
         np.random.shuffle(concat_pair_list_valid)
         mega_list_valid.extend(concat_pair_list_valid)
-        train_set = dataset_from_list(mega_list_train, id_to_num_dict, batch_size=batch_size, shuffle=True,
+    train_set = dataset_from_list(mega_list_train, id_to_num_dict, batch_size=batch_size, shuffle=True,
                                       train_and_valid=False, train_ratio=0.9)
-        valid_set = dataset_from_list(mega_list_valid, id_to_num_dict, batch_size=batch_size, shuffle=True,
+    valid_set = dataset_from_list(mega_list_valid, id_to_num_dict, batch_size=batch_size, shuffle=True,
                                       train_and_valid=False, train_ratio=0.9)
-        return train_set, valid_set
+    return train_set, valid_set
 
     #    xvec_dict = {}
     #    for arkOrScpFile in xvec_list:
