@@ -7,3 +7,4 @@ scores/*
 models/*
 pickled_files/*
 utils/__pycache__/*
+scores_*

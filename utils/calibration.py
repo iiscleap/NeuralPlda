@@ -55,8 +55,11 @@ def get_cmn2_thresholds(scores, targets):
 
     ind1 = int(min(minC_score_idx1, minC_score_idx2,min_cent_idx))
     ind2 = int(max(minC_score_idx1, minC_score_idx2,min_cent_idx))
-    
-    bins_cdf_2 = np.sort(scores[(scores>bins_cdf[int(min(ind1-1, len(bins_cdf)-1))-1]) * (scores<bins_cdf[int(min(ind2+1,len(bins_cdf)-1))])])
+
+    inds1 = (scores>bins_cdf[int(min(ind1-1, len(bins_cdf)-1))-1])
+    inds2 = (scores<bins_cdf[int(min(ind2+1,len(bins_cdf)-1))])
+    inds = inds1 * inds2
+    bins_cdf_2 = np.sort(scores[inds])
     
     pmiss = np.asarray([arr2val(np.where(scores_target_sorted<i)[0],-1) for i in bins_cdf_2])/len(scores_target)
     pfa = np.asarray([arr2val(np.where(scores_nontarget_sorted_rev>=i)[0],-1) for i in bins_cdf_2])/len(scores_nontarget)
