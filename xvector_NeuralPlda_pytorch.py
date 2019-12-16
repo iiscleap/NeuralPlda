@@ -70,6 +70,10 @@ class NeuralPlda(nn.Module):
 
         return S
 
+    def standardize(self, S):
+        pass
+
+
     def LoadPldaParamsFromKaldi(self, mean_vec_file, transform_mat_file, PldaFile):
         plda = kaldiPlda2numpydict(PldaFile)
         transform_mat = np.asarray([w.split() for w in np.asarray(
@@ -335,7 +339,6 @@ def main_kaldiplda():
     train_set, val_set = get_train_dataset(data_dir_list, xvector_scp_list, id_to_num_dict, batch_size=4096, train_and_valid=True, train_ratio=0.95)
     datasets_train.append(train_set)
     datasets_valid.append(val_set)
-    # bp()
 
     # NOTE: 'xvectors.pkl' files are generated using utils/Kaldi2NumpyUtils/kaldivec2numpydict.py
 
@@ -358,6 +361,7 @@ def main_kaldiplda():
     #    test_xvectors = pickle.load(open(test_xvector_path,'rb'))
     #    mega_xvec_dict.update(enroll_spk2xvector)
     #    mega_xvec_dict.update(test_xvectors)
+
     # sre16_eval_trials_train_dataset, sre16_eval_trials_valid_dataset = dataset_from_trial(trial_file_path, id_to_num_dict, batch_size=4096, shuffle=True, train_and_valid=True, train_ratio=0.95)
     # datasets_train.append(sre16_eval_trials_train_dataset)
     # datasets_valid.append(sre16_eval_trials_valid_dataset)
@@ -375,6 +379,7 @@ def main_kaldiplda():
     # #    mega_xvec_dict.update(enroll_xvectors_10)
     # datasets_train.append(sre10_train_dataset)
     # datasets_valid.append(sre10_valid_dataset)
+
 
     #    pickle.dump(mega_xvec_dict, open('pickled_files/mega_xvec_dict.pkl','wb'))
 
@@ -471,13 +476,14 @@ def main_kaldiplda():
 
 if __name__ == '__main__':
     main_kaldiplda()
-    # generate_scores_from_plda('/home/data2/shreyasr/NeuralPlda/Kaldi_Models/mean.vec',
-    #                           '/home/data2/shreyasr/NeuralPlda/Kaldi_Models/transform.mat',
-    #                           '/home/data2/shreyasr/NeuralPlda/Kaldi_Models/plda', 'scoring_valid_set_2',
-    #                           '/home/data2/shreyasr/NeuralPlda/valid_trials_new',
-    #                           '/home/data2/shreyasr/NeuralPlda/valid_xvector.scp',
-    #                           '/home/data2/shreyasr/NeuralPlda/valid_spk2utt',
-    #                           '/home/data2/shreyasr/NeuralPlda/num_utts.ark')
+    print("HI")
+    generate_scores_from_plda('/home/data2/shreyasr/NeuralPlda/Kaldi_Models/mean.vec',
+                              '/home/data2/shreyasr/NeuralPlda/Kaldi_Models/transform.mat',
+                              '/home/data2/shreyasr/NeuralPlda/Kaldi_Models/plda', 'scoring_valid_set_without_16',
+                              '/home/data2/shreyasr/NeuralPlda/valid_trials_new',
+                              '/home/data2/shreyasr/NeuralPlda/valid_xvector.scp',
+                              '/home/data2/shreyasr/NeuralPlda/valid_spk2utt',
+                              '/home/data2/shreyasr/NeuralPlda/num_utts.ark')
 
 #    main_score_eval()
 #    finetune('models/kaldi_pldaNet_sre0410_swbd_16_1.swbdsremx6epoch.1571827115.pt')
