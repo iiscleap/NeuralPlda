@@ -24,4 +24,4 @@ def plot_valid_losses(logfile):
     
 def plot_thresholds(threshold_file):
     a = np.genfromtxt(threshold_file)
-    plt.plot(a[2:7])
+    plt.plot(a[:,2:7])

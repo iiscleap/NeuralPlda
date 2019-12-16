@@ -100,29 +100,32 @@ def train(args, model, device, train_loader, valid_loader, mega_xvec_dict, num_t
     model.train()
     softcdets = []
 #    crossentropies = []
+    # nbatchCdet = 1
     fa1 = 0
     miss1 = 0
     fa2 = 0
     miss2 = 0
     tgt_count = 0
     non_tgt_count = 0
-    nbatchCdet = 1
+    # nbatchCdet = 1
     meansoftcdet = 1
-#    bp()
+    meansoftcdet = 1
+    # bp()
     for batch_idx, (data1, data2, target) in enumerate(train_loader):
         data1, data2, target = data1.to(device), data2.to(device), target.to(device)
         data1_xvec, data2_xvec = load_xvec_from_batch(mega_xvec_dict, num_to_id_dict, data1, data2, device)
         optimizer.zero_grad()
         output = model(data1_xvec, data2_xvec)
+        output_normed = (output - output.mean())/output.std()
         sigmoid = nn.Sigmoid()
-        loss1 = (sigmoid(model.alpha * (model.threshold1 - output)) * target).sum() / (target.sum()) + 99 * (
-                sigmoid(model.alpha * (output - model.threshold1)) * (1 - target)).sum() / ((1 - target).sum())
-        loss2 = (sigmoid(model.alpha * (model.threshold2 - output)) * target).sum() / (target.sum()) + 199 * (
-                sigmoid(model.alpha * (output - model.threshold2)) * (1 - target)).sum() / ((1 - target).sum())
-        # loss_bce = F.binary_cross_entropy(sigmoid(output - model.threshold_Xent), target)
-#        bce1 = -(1/len(target)) * ((target*torch.log(sigmoid(output - model.threshold1))).sum() + 99*((1 - target)*torch.log(1-sigmoid(output - model.threshold1))).sum())
-#        bce2 = -(1/len(target)) * ((target*torch.log(sigmoid(output - model.threshold2))).sum() + 199*((1 - target)*torch.log(1-sigmoid(output - model.threshold2))).sum())
-        # bce3 = -(1/len(target)) * ((target*torch.log(sigmoid(output - model.threshold1))).sum() + ((1 - target)*torch.log(1-sigmoid(output - model.threshold2))).sum())
+        loss1 = (sigmoid(model.alpha * (model.threshold1 - output_normed)) * target).sum() / (target.sum()) + 99 * (
+                sigmoid(model.alpha * (output_normed - model.threshold1)) * (1 - target)).sum() / ((1 - target).sum())
+        loss2 = (sigmoid(model.alpha * (model.threshold2 - output_normed)) * target).sum() / (target.sum()) + 199 * (
+                sigmoid(model.alpha * (output_normed - model.threshold2)) * (1 - target)).sum() / ((1 - target).sum())
+        # loss_bce = F.binary_cross_entropy(sigmoid(output_normed - model.threshold_Xent), target)
+#        bce1 = -(1/len(target)) * ((target*torch.log(sigmoid(output_normed - model.threshold1))).sum() + 99*((1 - target)*torch.log(1-sigmoid(output_normed - model.threshold1))).sum())
+#        bce2 = -(1/len(target)) * ((target*torch.log(sigmoid(output_normed - model.threshold2))).sum() + 199*((1 - target)*torch.log(1-sigmoid(output_normed - model.threshold2))).sum())
+        # bce3 = -(1/len(target)) * ((target*torch.log(sigmoid(output_normed - model.threshold1))).sum() + ((1 - target)*torch.log(1-sigmoid(output_normed - model.threshold2))).sum())
         loss =  0.5 * (loss1 + loss2)
         #  loss_bce #+ loss_bce # Change to  0.1*loss_bce #or # 0.5*(loss1+loss2) #When required
         tgt_count += target.sum().item()
@@ -132,14 +135,15 @@ def train(args, model, device, train_loader, valid_loader, mega_xvec_dict, num_t
         fa2 += ((output > model.threshold2).float() * (1 - target)).sum().item()
         miss2 += ((output < model.threshold2).float() * target).sum().item()
         softcdets.append((loss1.item() + loss2.item()) / 2)
-#        crossentropies.append(loss_bce.item())
         loss.backward()
         optimizer.step()
         with open('logs/Thresholds_{}'.format(timestamp), 'a+') as f:
-            f.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(epoch, batch_idx, float(model.threshold1.data[0]),
-                                                                  float(model.threshold2.data[0]),
-                                                                  float(model.threshold_Xent.data[0]), minC_threshold1,
-                                                                  minC_threshold2, meansoftcdet, nbatchCdet))
+            f.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(epoch, batch_idx, 
+                                                              float(model.threshold1.data[0]),
+                                                              float(model.threshold2.data[0]),
+                                                              float(model.threshold_Xent.data[0]),
+                                                              minC_threshold1,minC_threshold2,
+                                                              meansoftcdet))
         if batch_idx % args.log_interval == 0:
 #            bp()
             meansoftcdet = np.mean(softcdets)
@@ -155,27 +159,7 @@ def train(args, model, device, train_loader, valid_loader, mega_xvec_dict, num_t
 #            logging.info('Train Epoch: {} [{}/{} ({:.0f}%)]\t Crossentropy: {:.6f}'.format(
 #                epoch, batch_idx * len(data1), len(train_loader.dataset),
 #                       100. * batch_idx / len(train_loader), np.mean(crossentropies)))
-            Pmiss1 = miss1 / tgt_count
-            Pfa1 = fa1 / non_tgt_count
-            nbatchCdet1 = Pmiss1 + 99 * Pfa1
-            Pmiss2 = miss2 / tgt_count
-            Pfa2 = fa2 / non_tgt_count
-            nbatchCdet2 = Pmiss2 + 199 * Pfa2
-            nbatchCdet = (nbatchCdet1 + nbatchCdet2) / 2
-            fa1 = 0
-            miss1 = 0
-            fa2 = 0
-            miss2 = 0
-            tgt_count = 0
-            non_tgt_count = 0
-            softcdets = []
-#            crossentropies = []
-            model.eval()
-            minC_threshold1, minC_threshold2, min_cent_threshold = compute_minc_threshold(args, model, device,
-                                                                                          mega_xvec_dict,
-                                                                                          num_to_id_dict,
-                                                                                          valid_loader)
-            model.train()
+
 
 
 def validate(args, model, device, mega_xvec_dict, num_to_id_dict, data_loader):
@@ -189,22 +173,28 @@ def validate(args, model, device, mega_xvec_dict, num_to_id_dict, data_loader):
     miss2 = 0
     tgt_count = 0
     non_tgt_count = 0
+    output = []
+    targets = []
     with torch.no_grad():
         for data1, data2, target in data_loader:
             data1, data2, target = data1.to(device), data2.to(device), target.to(device)
             data1_xvec, data2_xvec = load_xvec_from_batch(mega_xvec_dict, num_to_id_dict, data1, data2,
                                                           device)  # mega_xvec_dict[num_to_id_dict[data1]], mega_xvec_dict[num_to_id_dict[data2]]
-            output = model(data1_xvec, data2_xvec)
-            sigmoid = nn.Sigmoid()
-            test_loss += F.binary_cross_entropy(sigmoid(output - min_cent_threshold), target).item()
-            correct_preds = (((output - min_cent_threshold) > 0).float() == target).float()
-            correct += (correct_preds).sum().item()
-            tgt_count += target.sum().item()
-            non_tgt_count += (1 - target).sum().item()
-            fa1 += ((output > minC_threshold1).float() * (1 - target)).sum().item()
-            miss1 += ((output < minC_threshold1).float() * target).sum().item()
-            fa2 += ((output > minC_threshold2).float() * (1 - target)).sum().item()
-            miss2 += ((output < minC_threshold2).float() * target).sum().item()
+            output.append(model(data1_xvec, data2_xvec))
+            targets.append(target)
+        output = torch.cat(output)
+        target = torch.cat(targets)
+        output_normed = (output - output.mean())/output.std()
+        sigmoid = nn.Sigmoid()
+        test_loss += F.binary_cross_entropy(sigmoid(output_normed - min_cent_threshold), target).item()
+        correct_preds = (((output_normed - min_cent_threshold) > 0).float() == target).float()
+        correct += (correct_preds).sum().item()
+        tgt_count += target.sum().item()
+        non_tgt_count += (1 - target).sum().item()
+        fa1 += ((output_normed > minC_threshold1).float() * (1 - target)).sum().item()
+        miss1 += ((output_normed < minC_threshold1).float() * target).sum().item()
+        fa2 += ((output_normed > minC_threshold2).float() * (1 - target)).sum().item()
+        miss2 += ((output_normed < minC_threshold2).float() * target).sum().item()
     Pmiss1 = miss1 / tgt_count
     Pfa1 = fa1 / non_tgt_count
     Cdet1 = Pmiss1 + 99 * Pfa1
@@ -243,7 +233,12 @@ def compute_minc_threshold(args, model, device, mega_xvec_dict, num_to_id_dict, 
             data1_xvec, data2_xvec = load_xvec_from_batch(mega_xvec_dict, num_to_id_dict, data1, data2, device1)
             targets = np.concatenate((targets, np.asarray(target)))
             scores = np.concatenate((scores, np.asarray(model.forward(data1_xvec, data2_xvec))))
-    minC_threshold1, minC_threshold2, min_cent_threshold = get_cmn2_thresholds(scores, targets)
+    scores_mean = np.mean(scores)
+    scores_std = np.std(scores)
+    # bp()
+    scores_centered = scores-scores_mean
+    scores_normed = scores_centered/scores_std
+    minC_threshold1, minC_threshold2, min_cent_threshold = get_cmn2_thresholds(scores_normed, targets)
     model = model.to(device)
     return minC_threshold1, minC_threshold2, min_cent_threshold
 
@@ -300,7 +295,7 @@ def main_kaldiplda():
     np.random.seed(args.seed)
     random.seed(args.seed)
 
-    logging.info("Started at {}\n\n softCdet Loss. Kaldi init. Batch size = 4096. Threshold1 and Threshold2 fixed using SRE 2018 dev after kaldi init. \n\n".format(
+    logging.info("Started at {}\n\n softCdet Loss. Kaldi PLDA init. BATCH NORM of scores. Thresholds computed using relative frequencies for miss and FA. Batch size = 4096. Threshold1 and Threshold2 updated after each epoch, using 5% validation after kaldi init. \n\n".format(
             datetime.now())) #bce1 = (target*torch.log(sigmoid(model.threshold1 - output))).sum() + 99*((1 - target)*torch.log(1-sigmoid(model.threshold1 - output))).sum() \n bce2 = (target*torch.log(sigmoid(model.threshold2 - output))).sum() + 199*((1 - target)*torch.log(1-sigmoid(model.threshold2 - output))).sum()\nloss = 0.5 * (bce1 + bce2) 
 
     device = torch.device("cuda" if use_cuda else "cpu")
@@ -410,11 +405,11 @@ def main_kaldiplda():
 
     print("Validation Set:")
     logging.info("Validation Set Trials:")
-
+    
     valloss, minC_threshold1, minC_threshold2, min_cent_threshold = validate(args, model, device, mega_xvec_dict, num_to_id_dict, valid_loader)
     model.state_dict()['threshold1'].data.copy_(torch.tensor([float(minC_threshold1)]).float())
     model.state_dict()['threshold2'].data.copy_(torch.tensor([float(minC_threshold2)]).float())
-    model.state_dict()['threshold_Xent'].data.copy_(torch.tensor([float(minC_threshold2)]).float())
+    model.state_dict()['threshold_Xent'].data.copy_(torch.tensor([float(min_cent_threshold)]).float())
     # model.threshold1 = torch.tensor([float(minC_threshold1)]).float().to(device)
     # model.threshold2 = torch.tensor([float(minC_threshold2)]).float().to(device)
     all_losses.append(valloss)
@@ -437,9 +432,10 @@ def main_kaldiplda():
         valloss, minC_threshold1, minC_threshold2, min_cent_threshold = validate(args, model, device, mega_xvec_dict,
                                                                                  num_to_id_dict,
                                                                                  valid_loader)
-#        if epoch%1 == 0:
-#            model.state_dict()['threshold1'].data.copy_(torch.tensor([float(minC_threshold1)]).float())
-#            model.state_dict()['threshold2'].data.copy_(torch.tensor([float(minC_threshold2)]).float())
+        model.state_dict()['threshold_Xent'].data.copy_(torch.tensor([float(min_cent_threshold)]).float())
+        if epoch%1 == 0:
+            model.state_dict()['threshold1'].data.copy_(torch.tensor([float(minC_threshold1)]).float())
+            model.state_dict()['threshold2'].data.copy_(torch.tensor([float(minC_threshold2)]).float())
         all_losses.append(valloss)
 
         print("SRE16_18_dev_eval Trials:")

@@ -8,6 +8,8 @@ Created on Mon Oct  8 11:58:51 2018
 
 
 import numpy as np
+import scipy.stats as ss
+import scipy.optimize as so
 from pdb import set_trace as bp
 
 def sigmoid(x):
@@ -30,11 +32,72 @@ used only in the validation step to print the minimum crossentropy, and does
 not affect training, unless the model parameters are updated using this. Feel 
 free to suggest alternate implementation for speed and memory optimization.
 """
+
+def C_norm(thresh, beta, mu_t, mu_nt, sigma_t, sigma_nt):
+    return(beta*(1-ss.norm(mu_nt,sigma_nt).cdf(thresh)) #beta*P_{FA}
+           + ss.norm(mu_t, sigma_t).cdf(thresh)) #P_Miss
+
+def argmin_cnorm(target_probs, mu_t, mu_nt, sigma_t, sigma_nt):
+    betas = [(1-pt)/pt for pt in target_probs]
+    Thresholds = []
+    for beta in betas:
+        def cnorm_instance(x):
+            return C_norm(x, beta, mu_t, mu_nt, sigma_t, sigma_nt)
+        Thresholds.append((so.minimize_scalar(cnorm_instance)).x)
+    return Thresholds
+
+def min_cnorm(target_probs, mu_t, mu_nt, sigma):
+    betas = [(1-pt)/pt for pt in target_probs]
+    mincs = []
+    for beta in betas:
+        def cnorm_instance(x):
+            return C_norm(x, beta, mu_t, mu_nt, sigma)
+        mincs.append(cnorm_instance(so.minimize_scalar(cnorm_instance).x))
+    return np.mean(mincs)
+        
     
-def get_cmn2_thresholds(scores, targets):
+def get_cmn2_thresholds_generative(scores, targets):
+    # bp()
     scores_target = scores[targets>0.5]
     scores_nontarget = scores[targets<0.5]
+    
+    mu_t = np.mean(scores_target)
+    mu_nt = np.mean(scores_nontarget)
+    
+    sigma_t = np.std(scores_target)
+    sigma_nt = np.std(scores_nontarget)
+    
+    minC_threshold1, minC_threshold2 = argmin_cnorm([0.01,0.005],mu_t, mu_nt, sigma_t, sigma_nt)
+    min_cent_threshold = minC_threshold2
+    
+    return minC_threshold1, minC_threshold2, min_cent_threshold
 
+
+def get_cmn2_thresholds_shared_sigma(scores, targets):
+    # bp()
+    scores_target = scores[targets>0.5]
+    scores_nontarget = scores[targets<0.5]
+    
+    mu_t = np.mean(scores_target)
+    mu_nt = np.mean(scores_nontarget)
+    
+    sost = np.sum((scores_target-mu_t)**2)
+    csc = scores_nontarget-mu_nt
+    cscsq = csc**2
+    sosnt = np.sum(cscsq)
+    sigma = np.sqrt((1/len(scores))*(sost + sosnt))
+    
+    minC_threshold1, minC_threshold2 = argmin_cnorm([0.01,0.005],mu_t, mu_nt, sigma, sigma)
+    min_cent_threshold = minC_threshold2
+    
+    return minC_threshold1, minC_threshold2, min_cent_threshold
+
+
+def get_cmn2_thresholds(scores, targets):
+    # bp()
+    scores_target = scores[targets>0.5]
+    scores_nontarget = scores[targets<0.5]    
+    
     scores_target_sorted = np.sort(scores_target)
     scores_nontarget_sorted_rev_temp = np.sort(-scores_nontarget)
     scores_nontarget_sorted_rev = -scores_nontarget_sorted_rev_temp
