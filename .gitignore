@@ -12,3 +12,9 @@ scores_*
 *txt
 valid_*
 plots/*
+utt2spk*
+spk2utt*
+Kaldi_Models/Train/*
+*_spks
+tmp_utts
+xvector_train.scp
