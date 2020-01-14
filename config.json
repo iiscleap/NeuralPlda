@@ -1,0 +1,46 @@
+{
+    "NeuralPlda_Architecture": 
+                                {
+                                    "xdim": 512, 
+                                    "LDA_dim": 170, 
+                                    "PLDA_dim": 170, 
+                                    "device": "cuda"
+                                    },
+    "Initialization": 
+                        {
+                            "type": "Kaldi", 
+                            "mean_vec_file": "",
+                            "transform_mat_file": "", 
+                            "plda_file": "", 
+                            "saved_model_file": ""
+                            },
+    "Number_of_iterations": 20,
+    "Loss_function": {
+                        "name":"SoftCdet",
+                        "wgt.softcdet": 1.,
+                        "wgt.bce": 0.
+                        },
+    "Optimizer": {
+                    "data_dir_list" :   [["/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre2004/male", "5"],
+                                        ["/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre2004/female", "5"],
+                                        ["/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre_2005_2006_08/male", "7"],
+                                        ["/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre_2005_2006_08/female", "7"],
+                                        ["/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre10/male", "10"],
+                                        ["/home/data2/SRE2019/prashantk/voxceleb/v3/data/sre10/female", "10"],
+                                        ["/home/data2/SRE2019/prashantk/voxceleb/v3/data/swbd/male", "2"],
+                                        ["/home/data2/SRE2019/prashantk/voxceleb/v3/data/swbd/female", "2"],
+                                        ["/home/data2/SRE2019/prashantk/voxceleb/v3/data/mx6/grepd/male", "4"],
+                                        ["/home/data2/SRE2019/prashantk/voxceleb/v3/data/mx6/grepd/female", "5"]],
+                    "training_trials_list": ["sre08", "sre10", "sre16"]
+                    "name": "adam",
+                    "learning_rate": 0.0001,
+                    "decay": ""
+                    },
+    "mega_xvec_dict_path": "",
+    "Train_data": {
+                    "trials_list" :     ["sre08","sre10","sre16"],
+                    "validation_split" : 0.05
+                    },
+    "Validation_sets" : ["x_percent_of_train", "SRE18_dev"],
+    "Test_sets" : ["SRE18_eval", "SRE19_eval"]
+    }

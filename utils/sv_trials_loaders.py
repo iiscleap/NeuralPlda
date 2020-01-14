@@ -12,7 +12,7 @@ import torch.utils.data as utils
 from pdb import set_trace as bp
 
 
-def make_same_speaker_list(spk2utt_file, same_speaker_list_file=None, n_repeats=1, train_and_valid=False,train_ratio=0.9):
+def make_same_speaker_list(spk2utt_file, same_speaker_list_file=None, n_repeats=1, train_and_valid=False,train_ratio=0.95):
     assert train_ratio < 1, "train_ratio should be less than 1."
     with open(spk2utt_file) as f:
         spk2utt_list = f.readlines()
@@ -61,7 +61,7 @@ def make_same_speaker_list(spk2utt_file, same_speaker_list_file=None, n_repeats=
 
 
 def make_diff_speaker_list(spk2utt_file, diff_speaker_list_file=None, n_repeats=1, train_and_valid=True,
-                           train_ratio=0.9):
+                           train_ratio=0.95):
     assert train_ratio < 1, "train_ratio should be less than 1."
     with open(spk2utt_file) as f:
         spk2utt_list = f.readlines()
@@ -204,7 +204,7 @@ def kaldivec2numpydict(inArkOrScpFile, outpicklefile=''):
         return res
 
 
-def dataloader_from_list(pair_list, res, batch_size=64, shuffle=True, train_and_valid=False, train_ratio=0.9):
+def dataloader_from_list(pair_list, res, batch_size=64, shuffle=True, train_and_valid=False, train_ratio=0.95):
     x1_array, x2_array, y_array = [], [], []
     for f in pair_list:
         x1_id, x2_id, label = f[0], f[1], f[2]
@@ -259,7 +259,7 @@ def dataloader_from_trial(trial_file_path, id_to_num_dict, batch_size=256, shuff
     return trial_loader  # tensor_X1, tensor_X2 , np.asarray(y_arr)
 
 
-def dataset_from_list(pair_list, id_to_num_dict, batch_size=64, shuffle=True, train_and_valid=False, train_ratio=0.9):
+def dataset_from_list(pair_list, id_to_num_dict, batch_size=64, shuffle=True, train_and_valid=False, train_ratio=0.95):
     x1_array, x2_array, y_array = [], [], []
     for i, f in enumerate(pair_list):
         x1_id, x2_id, label = f[0], f[1], f[2]
@@ -552,7 +552,7 @@ def get_train_valid_loader(data_dir_list, xvec_list, batch_size=64):
 
     print(len(mega_list))
     train_loader, valid_loader = dataloader_from_list(mega_list, xvec_dict, batch_size=batch_size, shuffle=True,
-                                                      train_and_valid=True, train_ratio=0.9)
+                                                      train_and_valid=True, train_ratio=0.95)
     return train_loader, valid_loader
 
 
@@ -601,9 +601,9 @@ def get_train_dataset(data_dir_list, xvec_list, id_to_num_dict, batch_size=64, t
         np.random.shuffle(concat_pair_list_valid)
         mega_list_valid.extend(concat_pair_list_valid)
     train_set = dataset_from_list(mega_list_train, id_to_num_dict, batch_size=batch_size, shuffle=True,
-                                      train_and_valid=False, train_ratio=0.9)
+                                      train_and_valid=False, train_ratio=0.95)
     valid_set = dataset_from_list(mega_list_valid, id_to_num_dict, batch_size=batch_size, shuffle=True,
-                                      train_and_valid=False, train_ratio=0.9)
+                                      train_and_valid=False, train_ratio=0.95)
     return train_set, valid_set
 
     #    xvec_dict = {}
@@ -647,7 +647,7 @@ def generate_scores_in_batches(score_filename, device, trials_file, x1, x2, mode
     # To reduce memory usage on CPU, scores are generated in batches and then concatenated
 
     model = model.cpu()
-    batch_size = 1024
+    batch_size = 102400
     iters = x1.shape[0] // batch_size
     x1 = x1.cpu()
     x2 = x2.cpu()

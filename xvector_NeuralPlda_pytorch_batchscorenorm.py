@@ -49,8 +49,8 @@ class NeuralPlda(nn.Module):
         self.Q = nn.Parameter(torch.rand(PLDA_dim, requires_grad=True))
         self.threshold1 = nn.Parameter(0*torch.rand(1, requires_grad=True)) # nn.Parameter(torch.tensor(4.5951)).to(device)
         self.threshold2 = nn.Parameter(0.7+0*torch.rand(1, requires_grad=True)) # nn.Parameter(torch.tensor(5.2933)).to(device)
-        self.threshold1.requires_grad = False
-        self.threshold2.requires_grad = False
+        # self.threshold1.requires_grad = False
+        # self.threshold2.requires_grad = False
         self.threshold_Xent = nn.Parameter(5.0+0*torch.rand(1, requires_grad=True))  # torch.nn.Parameter(0*torch.rand(1,requires_grad=True))
         self.threshold_Xent.requires_grad = False
         self.alpha = torch.tensor(5.0).to(device)
@@ -101,12 +101,12 @@ def train(args, model, device, train_loader, valid_loader, mega_xvec_dict, num_t
     softcdets = []
 #    crossentropies = []
     # nbatchCdet = 1
-    fa1 = 0
-    miss1 = 0
-    fa2 = 0
-    miss2 = 0
-    tgt_count = 0
-    non_tgt_count = 0
+    # fa1 = 0
+    # miss1 = 0
+    # fa2 = 0
+    # miss2 = 0
+    # tgt_count = 0
+    # non_tgt_count = 0
     # nbatchCdet = 1
     meansoftcdet = 1
     meansoftcdet = 1
@@ -128,12 +128,12 @@ def train(args, model, device, train_loader, valid_loader, mega_xvec_dict, num_t
         # bce3 = -(1/len(target)) * ((target*torch.log(sigmoid(output_normed - model.threshold1))).sum() + ((1 - target)*torch.log(1-sigmoid(output_normed - model.threshold2))).sum())
         loss =  0.5 * (loss1 + loss2)
         #  loss_bce #+ loss_bce # Change to  0.1*loss_bce #or # 0.5*(loss1+loss2) #When required
-        tgt_count += target.sum().item()
-        non_tgt_count += (1 - target).sum().item()
-        fa1 += ((output > model.threshold1).float() * (1 - target)).sum().item()
-        miss1 += ((output < model.threshold1).float() * target).sum().item()
-        fa2 += ((output > model.threshold2).float() * (1 - target)).sum().item()
-        miss2 += ((output < model.threshold2).float() * target).sum().item()
+        # tgt_count += target.sum().item()
+        # non_tgt_count += (1 - target).sum().item()
+        # fa1 += ((output_normed > model.threshold1).float() * (1 - target)).sum().item()
+        # miss1 += ((output_normed < model.threshold1).float() * target).sum().item()
+        # fa2 += ((output_normed > model.threshold2).float() * (1 - target)).sum().item()
+        # miss2 += ((output_normed < model.threshold2).float() * target).sum().item()
         softcdets.append((loss1.item() + loss2.item()) / 2)
         loss.backward()
         optimizer.step()
@@ -235,7 +235,6 @@ def compute_minc_threshold(args, model, device, mega_xvec_dict, num_to_id_dict, 
             scores = np.concatenate((scores, np.asarray(model.forward(data1_xvec, data2_xvec))))
     scores_mean = np.mean(scores)
     scores_std = np.std(scores)
-    # bp()
     scores_centered = scores-scores_mean
     scores_normed = scores_centered/scores_std
     minC_threshold1, minC_threshold2, min_cent_threshold = get_cmn2_thresholds(scores_normed, targets)
@@ -433,10 +432,10 @@ def main_kaldiplda():
                                                                                  num_to_id_dict,
                                                                                  valid_loader)
         model.state_dict()['threshold_Xent'].data.copy_(torch.tensor([float(min_cent_threshold)]).float())
-        if epoch%1 == 0:
-            model.state_dict()['threshold1'].data.copy_(torch.tensor([float(minC_threshold1)]).float())
-            model.state_dict()['threshold2'].data.copy_(torch.tensor([float(minC_threshold2)]).float())
-        all_losses.append(valloss)
+        # if epoch%1 == 0:
+        #     model.state_dict()['threshold1'].data.copy_(torch.tensor([float(minC_threshold1)]).float())
+        #     model.state_dict()['threshold2'].data.copy_(torch.tensor([float(minC_threshold2)]).float())
+        # all_losses.append(valloss)
 
         print("SRE16_18_dev_eval Trials:")
         logging.info("SRE16_18_dev_eval Trials:")
