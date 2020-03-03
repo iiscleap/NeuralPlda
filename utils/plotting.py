@@ -14,24 +14,28 @@ from textwrap import wrap
 def grep(l,s):
     return [i for i in l if s in i]
 
-def plot_valid_mincs(logfile, savefile=''):
+def plot_valid_mincs(logfile, savefile='', nepochs=20):
     a = np.genfromtxt(logfile,dtype='str',delimiter=',,,,')
     b = grep(a,"Test set: C_min(149):")
     losses = [float(w.split()[-1]) for w in b]
     train_losses = np.array([l for i,l in enumerate(losses[1:]) if i%3==0])
     val_losses = np.array([l for i,l in enumerate(losses[1:]) if i%3==1])
     sre18_dev_losses = np.array([l for i,l in enumerate(losses[1:]) if i%3==2])
-    plt.figure(figsize=(8,8))
-    plt.plot(train_losses)
-    plt.plot(val_losses)
-    plt.plot(sre18_dev_losses)
+    plt.figure(figsize=(5,3.5))
+    plt.plot(train_losses[:nepochs])
+    plt.plot(val_losses[:nepochs])
+    plt.plot(sre18_dev_losses[:nepochs])
     x1,x2,y1,y2 = plt.axis()
-    plt.axis((x1,x2,0,1))
-    plt.legend(['Train data Cmin','5% Unseen Validation Cmin','SRE 2018 Cmin'])
-    title = '\n'.join(wrap("Plot of C_{min}. "+a[1], 60))
-    plt.title(title)
+    # plt.axis((x1,x2,0,1))
+    plt.legend(['Vox Train','Vox unseen val. set','VOiCES Dev'])
+    plt.xlabel("Epoch #")
+    plt.ylabel("minDCF")
+    plt.gcf().subplots_adjust(bottom=0.15)
+    # plt.legend(['Train data Cmin','5% Unseen Validation Cmin','VOICES_Dev Cmin'])
+    # title = '\n'.join(wrap("Plot of C_{min}. "+a[1], 60))
+    # plt.title(title)
     if savefile:
-        plt.savefig("{}_minc.png".format(savefile))
+        plt.savefig("{}_minc.pdf".format(savefile))
     
 def plot_valid_softcdets(logfile, savefile=''):
     a = np.genfromtxt(logfile,dtype='str',delimiter=',,,,')

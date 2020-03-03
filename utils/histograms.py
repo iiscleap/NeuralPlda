@@ -10,14 +10,14 @@ from matplotlib import pyplot
 import os
 
 
-score_key = np.genfromtxt('/run/user/1001/gvfs/sftp:host=10.64.18.30,user=shreyasr/home/data/SRE2019/LDC2019E59/dev/docs/sre18_dev_trial_key.tsv', dtype='str', delimiter='\t', skip_header=1)
+score_key = np.genfromtxt('/run/user/1001/gvfs/sftp:host=10.64.18.30,user=prashantk/home/data/SRE2019/LDC2019E59/dev/docs/sre18_dev_trial_key.tsv', dtype='str', delimiter='\t', skip_header=1)
 
 cmn2_target_idx = score_key[:,3]=='target' #(score_key[:,-1]=='cmn2') #* ()
 cmn2_nontarget_idx = score_key[:,3]=='nontarget' #(score_key[:,-1]=='cmn2') #* ()
 
-timestamp=1577382924
+timestamp=1579168538
 for i in range(1,31):
-    score_tsv = np.genfromtxt('/run/user/1001/gvfs/sftp:host=10.64.18.30,user=shreyasr/home/data2/shreyasr/NeuralPlda/scores/sre18_dev_kaldipldanet_epoch{}_{}.txt'.format(i,timestamp), dtype='str', delimiter='\t', skip_header=0)
+    score_tsv = np.genfromtxt('/run/user/1001/gvfs/sftp:host=10.64.18.30,user=prashantk/home/data2/SRE2019/prashantk/NeuralPlda/scores/sre18_dev_kaldipldanet_epoch{}_{}.txt'.format(i,timestamp), dtype='str', delimiter='\t', skip_header=0)
     
     header = score_tsv[0]
     score_tsv = score_tsv[1:]
