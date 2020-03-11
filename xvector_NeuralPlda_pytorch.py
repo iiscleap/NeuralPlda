@@ -6,6 +6,8 @@ Created on Thu Oct  3 21:15:54 2019
 @author: shreyasr, prashantk
 """
 
+# %% imports and definitions
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -28,28 +30,26 @@ from utils.models import NeuralPlda
 def train(nc, model, device, train_loader, mega_xvec_dict, num_to_id_dict, optimizer, epoch, valid_loaders=None):
         
     model.train()
-    softcdets = []
+    losses = []
 
     for batch_idx, (data1, data2, target) in enumerate(train_loader):
         data1, data2, target = data1.to(device), data2.to(device), target.to(device)
         data1_xvec, data2_xvec = load_xvec_from_numbatch(mega_xvec_dict, num_to_id_dict, data1, data2, device)
         optimizer.zero_grad()
         output = model(data1_xvec, data2_xvec)
-        # sigmoid = nn.Sigmoid()
-        # loss_bce = F.binary_cross_entropy(sigmoid(output - model.threshold_Xent), target)
-        loss = model.softcdet(output, target) # loss_bce
-        softcdets.append(loss.item())
+        loss = model.loss(output, target)
+        losses.append(loss.item())
         loss.backward()
         optimizer.step()
         
         if batch_idx % nc.log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\t SoftCdet: {:.6f}'.format(
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\t {}: {:.6f}'.format(
                 epoch, batch_idx * len(data1), len(train_loader.dataset),
-                       100. * batch_idx / len(train_loader), sum(softcdets)/len(softcdets)))
-            logging.info('Train Epoch: {} [{}/{} ({:.0f}%)]\t SoftCdet: {:.6f}'.format(
+                       100. * batch_idx / len(train_loader), nc.loss, sum(losses)/len(losses)))
+            logging.info('Train Epoch: {} [{}/{} ({:.0f}%)]\t {}: {:.6f}'.format(
                 epoch, batch_idx * len(data1), len(train_loader.dataset),
-                       100. * batch_idx / len(train_loader), sum(softcdets)/len(softcdets)))
-            softcdets = []
+                       100. * batch_idx / len(train_loader), nc.loss, sum(losses)/len(losses)))
+            losses = []
 
 
 
@@ -66,6 +66,7 @@ def validate(nc, model, device, mega_xvec_dict, num_to_id_dict, data_loader, upd
             scores = torch.cat((scores, scores_batch))
         soft_cdet_loss = model.softcdet(scores, targets)
         cdet_mdl = model.cdet(scores, targets)
+        # minc, minc_threshold = model.minc(scores, targets, update_thresholds=update_thresholds, showplots=True)
         minc, minc_threshold = model.minc(scores, targets, update_thresholds=update_thresholds)
     
     logging.info('\n\nTest set: C_det (mdl): {:.4f}\n'.format(cdet_mdl))
@@ -83,7 +84,7 @@ def validate(nc, model, device, mega_xvec_dict, num_to_id_dict, data_loader, upd
     return minc, minc_threshold
 
 
-
+# %% main_kaldiplda
 
 def main_kaldiplda():   
     timestamp = int(datetime.timestamp(datetime.now()))
@@ -94,7 +95,7 @@ def main_kaldiplda():
                         datefmt='%H:%M:%S',
                         level=logging.DEBUG)
     # %% Configure Training
-    configfile = 'conf/voices_config.cfg'
+    configfile = 'conf/sdsvc_config.cfg'
     
     nc = NpldaConf(configfile)
     
@@ -119,11 +120,11 @@ def main_kaldiplda():
     num_to_id_dict = {i: j for i, j in enumerate(list(mega_xvec_dict))}
     id_to_num_dict = {v: k for k, v in num_to_id_dict.items()}
     
-    train_loader = combine_trials_and_get_loader(nc.training_data_trials_list, id_to_num_dict, batch_size=nc.batch_size)
+    train_loader = combine_trials_and_get_loader(nc.training_data_trials_list, id_to_num_dict, subsample_factors=nc.train_subsample_factors ,batch_size=nc.batch_size)
     
     # train_loader_sampled = combine_trials_and_get_loader(nc.training_data_trials_list, id_to_num_dict, batch_size=nc.batch_size, subset=0.05)
     
-    valid_loaders_dict = get_trials_loaders_dict(nc.validation_trials_list, id_to_num_dict, batch_size=5*nc.batch_size)
+    valid_loaders_dict = get_trials_loaders_dict(nc.validation_trials_list, id_to_num_dict, subsample_factors=nc.valid_subsample_factors, batch_size=5*nc.batch_size)
     
     # %% Initialize model and stuff
 
@@ -149,7 +150,7 @@ def main_kaldiplda():
     all_losses = []
     for val_set, valid_loader in valid_loaders_dict.items():
         print("Validating {}".format(val_set))
-        logging.info("Train set:")
+        logging.info("Validating {}".format(val_set))
         valloss, minC_threshold = validate(nc, model, device, mega_xvec_dict, num_to_id_dict, valid_loader)
         if val_set==nc.heldout_set_for_lr_decay:
             all_losses.append(valloss)
@@ -160,13 +161,13 @@ def main_kaldiplda():
         
         for val_set, valid_loader in valid_loaders_dict.items():
             print("Validating {}".format(val_set))
-            logging.info("Train set:")
+            logging.info("Validating {}".format(val_set))
             valloss, minC_threshold = validate(nc, model, device, mega_xvec_dict, num_to_id_dict, valid_loader)
             if val_set==nc.heldout_set_for_lr_decay:
                 all_losses.append(valloss)
 
             
-        model.SaveModel("models/NPLDA.{}.pt".format(epoch, timestamp))
+        model.SaveModel("models/NPLDA_{}_{}.pt".format(epoch, timestamp))
         for trial_file in nc.test_trials_list:
             print("Generating scores for Epoch {} with trial file {}".format(epoch, trial_file))
 
@@ -181,6 +182,7 @@ def main_kaldiplda():
         except:
             pass
 
+# %% __main__
 
 if __name__ == '__main__':
     main_kaldiplda()

@@ -30,3 +30,4 @@ utils/visualizations/**
 utils/tdnn_xvector.py
 utils/analyze_scores.py
 kaldi_io/**
+utils/__pycache__/**

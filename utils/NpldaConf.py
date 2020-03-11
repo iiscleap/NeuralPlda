@@ -32,8 +32,10 @@ class NpldaConf:
         self.seed = int(config['NPLDA']['seed'])
         self.alpha = float(config['NPLDA']['alpha'])
         self.loss = config['Training']['loss']
+        self.cmiss = float(config['Training']['cmiss'])
+        self.cfa = float(config['Training']['cfa'])
         self.target_probs = config['Training']['target_probs'].split(',')
-        self.beta = [(1-float(pt))/float(pt) for pt in self.target_probs]
+        self.beta = [self.cfa*(1-float(pt))/(self.cmiss*float(pt)) for pt in self.target_probs]
         self.batch_size = int(config['Training']['batch_size'])
         self.n_epochs = int(config['Training']['n_epochs'])
         self.lr = float(config['Training']['lr'])
@@ -44,3 +46,11 @@ class NpldaConf:
             self.generate_scorefile = generate_sre_scores
         else:
             self.generate_scorefile = generate_voices_scores
+        if config['Training']['train_subsample_factors'] == 'None':
+            self.train_subsample_factors = None
+        else:
+            self.train_subsample_factors = [float(x) for x in config['Training']['train_subsample_factors'].split(',')]
+        if config['Training']['valid_subsample_factors'] == 'None':
+            self.valid_subsample_factors = None
+        else:
+            self.valid_subsample_factors = [float(x) for x in config['Training']['valid_subsample_factors'].split(',')]

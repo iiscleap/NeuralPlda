@@ -17,6 +17,7 @@ import numpy as np
 import pickle
 import subprocess
 from utils.Kaldi2NumpyUtils.kaldiPlda2numpydict import kaldiPlda2numpydict
+from matplotlib import pyplot as plt
 from pdb import set_trace as bp
 
 def arr2val(x, retidx):
@@ -41,6 +42,7 @@ class NeuralPlda(nn.Module):
         self.alpha = torch.tensor(nc.alpha).to(nc.device)
         self.beta = nc.beta
         self.dropout = nn.Dropout(p=0.5)
+        self.lossfn = nc.loss
 
 
     def forward(self, x1, x2):
@@ -62,19 +64,31 @@ class NeuralPlda(nn.Module):
         losses = [((sigmoid(self.alpha * (self.threshold[beta] - output)) * target).sum() / (target.sum()) + beta * (sigmoid(self.alpha * (output - self.threshold[beta])) * (1 - target)).sum() / ((1 - target).sum())) for beta in self.beta]
         loss = sum(losses)/len(losses)
         return loss
+    
+    def crossentropy(self, output, target):
+        sigmoid = nn.Sigmoid()
+        loss = F.binary_cross_entropy(sigmoid(output - self.threshold_Xent), target)
+        return loss
+    
+    def loss(self, output, target):
+        if self.lossfn == 'SoftCdet':
+            return self.softcdet(output, target)
+        elif self.lossfn == 'crossentropy':
+            return self.crossentropy(output, target)
 
     def cdet(self, output, target):
         losses = [((output < self.threshold[beta]).float() * target).sum() / (target.sum()) + beta * ((output > self.threshold[beta]).float() * (1 - target)).sum() / ((1 - target).sum()) for beta in self.beta]
         loss = sum(losses)/len(losses)
         return loss
     
-    def minc(self, output, target, update_thresholds=False):
+    def minc(self, output, target, update_thresholds=False, showplots=False):
         scores_target, _ = torch.sort(output[target>0.5])
         scores_nontarget, _ = torch.sort(-output[target<0.5])
         scores_nontarget = -scores_nontarget
         pmiss_arr = [arr2val(torch.where(scores_target < i)[0], -1) for i in scores_target]
-        pmiss = torch.tensor(pmiss_arr) / (target.sum())
-        pfa = torch.tensor([arr2val(torch.where(scores_nontarget >= i)[0], -1) for i in scores_target]) / (1-target).sum()
+        pmiss = torch.tensor(pmiss_arr).float() / (target.cpu().sum())
+        pfa_arr = [arr2val(torch.where(scores_nontarget >= i)[0], -1) for i in scores_target]
+        pfa = torch.tensor(pfa_arr).float() / ((1-target.cpu()).sum())
         cdet_arr, minc_dict, minc_threshold = {}, {}, {}
         for beta in self.beta:
             cdet_arr[beta] = pmiss + beta*pfa
@@ -84,6 +98,19 @@ class NeuralPlda(nn.Module):
                 self.state_dict()["Th{}".format(int(beta))].data.copy_(minc_threshold[beta])
         mincs = list(minc_dict.values())
         minc_avg = sum(mincs)/len(mincs)
+        if showplots:
+            plt.figure()
+            minsc = output.min()
+            maxsc = output.max()
+            plt.hist(np.asarray(scores_nontarget), bins=np.linspace(minsc,maxsc,50), alpha=0.5, normed=True)
+            plt.hist(np.asarray(scores_target), bins=np.linspace(minsc,maxsc,50), alpha=0.5, normed=True)
+            plt.plot(scores_target, pmiss)
+            plt.plot(scores_target, pfa)
+            plt.plot(scores_target, cdet_arr[99])
+            plt.plot(scores_target, cdet_arr[199])
+            # plt.ylim([0,3])
+            # plt.xlim([0,1.4])
+            plt.show()
         return minc_avg, minc_threshold
             
         

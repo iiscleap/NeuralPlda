@@ -107,7 +107,7 @@ def make_diff_speaker_list(spk2utt_file, xvector_scp_combined, diff_speaker_list
                 i = i + 1
                 random.shuffle(utt2spk_list)
                 if i == 50:
-                    bp()
+                    # bp()
                     break
 
     valid_diff_speaker_list = []
@@ -129,7 +129,7 @@ def make_diff_speaker_list(spk2utt_file, xvector_scp_combined, diff_speaker_list
                 i = i + 1
                 random.shuffle(utt2spk_list)
                 if i == 50:
-                    bp()
+                    # bp()
                     break
     train_diff_speaker_list = np.asarray(train_diff_speaker_list)
     valid_diff_speaker_list = np.asarray(valid_diff_speaker_list)
@@ -172,7 +172,7 @@ def generate_train_trial_keys(data_spk2utt_list, xvector_scp_list, train_and_val
     for i, d in enumerate(data_spk2utt_list):
         # print("In for loop get train dataset")
         same_train_list, same_valid_list = make_same_speaker_list(d, xvector_scp_combined, xvector_scp_list, n_repeats = num_repeats_list[i], train_and_valid=True, train_ratio=0.95)
-        diff_train_list, diff_valid_list = make_diff_speaker_list(d, xvector_scp_combined, n_repeats = 10*num_repeats_list[i], train_and_valid=True, train_ratio=0.95)
+        diff_train_list, diff_valid_list = make_diff_speaker_list(d, xvector_scp_combined, n_repeats = num_repeats_list[i], train_and_valid=True, train_ratio=0.95)
         # bp()
         zeros = np.zeros((diff_train_list.shape[0], 1)).astype(int)
         ones = np.ones((same_train_list.shape[0], 1)).astype(int)
@@ -238,9 +238,11 @@ def save_unique_train_valid_xvector_scps(data_spk2utt_list, xvector_scp_list, tr
     np.savetxt(train_scp_path, train_scp, fmt='%s', delimiter=' ', comments='')
     np.savetxt(valid_scp_path, valid_scp, fmt='%s', delimiter=' ', comments='')
 
-def combine_trials_and_get_loader(trials_key_files_list, id_to_num_dict, batch_size=2048, subset=0):
+def combine_trials_and_get_loader(trials_key_files_list, id_to_num_dict, subsample_factors=None, batch_size=2048, subset=0):
+    if subsample_factors is None:
+        subsample_factors = [1 for w in trials_key_files_list]
     datasets = []
-    for f in trials_key_files_list:
+    for f, sf in zip(trials_key_files_list, subsample_factors):
         t = np.genfromtxt(f, dtype = 'str')
         x1, x2, l = [], [], []
         for tr in t:
@@ -249,7 +251,9 @@ def combine_trials_and_get_loader(trials_key_files_list, id_to_num_dict, batch_s
                 x1.append(a); x2.append(b); l.append(c)
             except:
                 pass
-        datasets.append(TensorDataset(torch.tensor(x1),torch.tensor(x2),torch.tensor(l)))
+        tdset = TensorDataset(torch.tensor(x1),torch.tensor(x2),torch.tensor(l))
+        inds = np.arange(len(tdset))[np.random.rand(len(tdset))<sf]
+        datasets.append(Subset(tdset, inds))
     combined_dataset = ConcatDataset(datasets)
     if subset > 0:
         inds = np.arange(len(combined_dataset))[np.random.rand(len(combined_dataset))<subset]
@@ -257,9 +261,11 @@ def combine_trials_and_get_loader(trials_key_files_list, id_to_num_dict, batch_s
     trials_loader = DataLoader(combined_dataset, batch_size=batch_size, shuffle=True)
     return trials_loader
 
-def get_trials_loaders_dict(trials_key_files_list, id_to_num_dict, batch_size=2048, subset=0):
+def get_trials_loaders_dict(trials_key_files_list, id_to_num_dict, subsample_factors=None, batch_size=2048, subset=0):
     trials_loaders_dict = {}
-    for f in trials_key_files_list:
+    if subsample_factors is None:
+        subsample_factors = [1 for w in trials_key_files_list]
+    for f, sf in zip(trials_key_files_list, subsample_factors):
         t = np.genfromtxt(f, dtype = 'str')
         x1, x2, l = [], [], []
         for tr in t:
@@ -268,7 +274,9 @@ def get_trials_loaders_dict(trials_key_files_list, id_to_num_dict, batch_size=20
                 x1.append(a); x2.append(b); l.append(c)
             except:
                 pass
-        dataset = TensorDataset(torch.tensor(x1),torch.tensor(x2),torch.tensor(l))
+        tdset = TensorDataset(torch.tensor(x1),torch.tensor(x2),torch.tensor(l))
+        inds = np.arange(len(tdset))[np.random.rand(len(tdset))<sf]
+        dataset = Subset(tdset, inds)
         if subset > 0:
             inds = np.arange(len(dataset))[np.random.rand(len(dataset))<subset]
             dataset = Subset(dataset, inds)
