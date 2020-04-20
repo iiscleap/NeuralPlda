@@ -26,7 +26,7 @@ if __name__=='__main__':
     base_path = '/home/data2/SRE2019/prashantk/voxceleb/v2'
     xvectors_base_path = os.path.join(base_path,'exp/xvector_nnet_1a')
     
-    stage = 2
+    stage = 6
     
     # %% Generate and save training trial keys using SRE SWBD and MX6 datasets
     if stage <= 1:

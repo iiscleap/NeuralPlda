@@ -29,5 +29,12 @@ utils/tsne_visualize.py
 utils/visualizations/**
 utils/tdnn_xvector.py
 utils/analyze_scores.py
+utils/*gen_20_sec_chunks*
+utils/qsub*
+utils/trials_gen*
+utils/models_scorenorm.py
 kaldi_io/**
-utils/__pycache__/**
+**/*.out
+**/*.err
+mfcc/**
+.rsyncignore

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Oct  3 21:15:54 2019
+Created on Mon Apr  6 12:30:45 2020
 
-@author: shreyasr, prashantk
+@author: shreyasr
 """
 
 # %% imports and definitions
@@ -25,7 +25,7 @@ from utils.sv_trials_loaders import combine_trials_and_get_loader, get_trials_lo
 from datetime import datetime
 import logging
 
-from utils.models import NeuralPlda
+from utils.models import DPlda
 
 def train(nc, model, device, train_loader, mega_xvec_dict, num_to_id_dict, optimizer, epoch, valid_loaders=None):
         
@@ -94,7 +94,7 @@ def main_kaldiplda():
                         datefmt='%H:%M:%S',
                         level=logging.DEBUG)
     # %% Configure Training
-    configfile = 'conf/voices_config.cfg'
+    configfile = 'conf/voices_config_dplda.cfg'
     
     nc = NpldaConf(configfile)
     
@@ -104,6 +104,7 @@ def main_kaldiplda():
 
     logging.info(" Running file {}\n\nStarted at {}.\n".format(sys.argv[0], datetime.now()))
     
+
     if not torch.cuda.is_available():
         nc.device='cpu'
     device = torch.device(nc.device)
@@ -126,17 +127,25 @@ def main_kaldiplda():
     
     # %% Initialize model and stuff
 
-    model = NeuralPlda(nc).to(device)
+    model = DPlda(nc).to(device)
     
     ## To load a Kaldi trained PLDA model, Specify the paths of 'mean.vec', 'transform.mat' and 'plda' generated from stage 8 of https://github.com/kaldi-asr/kaldi/blob/master/egs/sre16/v2/run.sh 
     
     if nc.initialization == 'kaldi':
-        model.LoadPldaParamsFromKaldi(nc.meanvec, nc.transformmat, nc.kaldiplda)
-
+        model.LoadParamsFromKaldi(nc.meanvec, nc.transformmat)
+    
+    
     ## Uncomment to initialize with a pickled pretrained model
     # model = pickle.load(open('/home/data2/SRE2019/shreyasr/X/models/kaldi_pldaNet_sre0410_swbd_16_16.swbdsremx6epoch.1571651491.pt','rb'))
-        
-    optimizer = optim.Adam(model.parameters(), lr=nc.lr, weight_decay=1e-5)
+    params_dict = dict(model.named_parameters())
+    updatable_params = []
+    for param in params_dict.keys():
+        if 'centering_and_LDA' in param:
+            params_dict[param].requires_grad = False
+        else:
+            updatable_params.append(params_dict[param])
+    optimizer = optim.Adam(updatable_params, lr=nc.lr, weight_decay=1e-5)   
+    # optimizer = optim.Adam(model.parameters(), lr=nc.lr, weight_decay=1e-5)
 
     print("Initializing the thresholds... Whatever numbers that get printed here are junk.\n")
     valloss, minC_threshold = validate(nc, model, device, mega_xvec_dict, num_to_id_dict, valid_loaders_dict[nc.heldout_set_for_th_init], update_thresholds=True)
