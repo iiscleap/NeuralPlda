@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Feb 14 14:32:19 2020
+Created on Wed Mar  4 16:44:26 2020
 
 @author: shreyasr
 """
@@ -23,40 +23,31 @@ from utils.sv_trials_loaders import generate_train_trial_keys, save_unique_train
 
 if __name__=='__main__':
     
-    base_path = '/home/data2/SRE2019/prashantk/voxceleb/v2'
-    xvectors_base_path = os.path.join(base_path,'exp/xvector_nnet_1a')
+    base_path = '/home/data2/SRE2019/prashantk/voxceleb/v3'
+    xvectors_base_path = os.path.join(base_path,'exp/xvector_nnet_sre18_3')
     
-    stage = 6
+    stage = 1
     
     # %% Generate and save training trial keys using SRE SWBD and MX6 datasets
     if stage <= 1:
-        data_spk2utt_list = np.asarray([['{}/data/sre2004/male/spk2utt'.format(base_path), '25'],
-                                    ['{}/data/sre2004/female/spk2utt'.format(base_path), '25'],
-                                    ['{}/data/sre_2005_2006_08/male/spk2utt'.format(base_path), '40'],
-                                    ['{}/data/sre_2005_2006_08/female/spk2utt'.format(base_path), '40'],
-                                    ['{}/data/sre10/male/spk2utt'.format(base_path), '30'],
-                                    ['{}/data/sre10/female/spk2utt'.format(base_path), '30'],
-                                    ['{}/data/swbd/male/spk2utt'.format(base_path), '15'],
-                                    ['{}/data/swbd/female/spk2utt'.format(base_path), '15'],
-                                    ['{}/data/mx6/grepd/male/spk2utt'.format(base_path), '30'],
-                                    ['{}/data/mx6/grepd/female/spk2utt'.format(base_path), '35']])
+        data_spk2utt_list = np.asarray([['{}/egs/male/spk2utt'.format(xvectors_base_path), '5'],
+                                        ['{}/egs/female/spk2utt'.format(xvectors_base_path), '5']])
+
     
         xvector_scp_list = np.asarray(
-            ['{}/xvectors_swbd/xvector_fullpaths.scp'.format(xvectors_base_path),
-             '{}/xvectors_sre/xvector_fullpaths.scp'.format(xvectors_base_path),
-             '{}/xvectors_mx6/xvector_fullpaths.scp'.format(xvectors_base_path)])
+            ['{}/egs/egs.scp'.format(xvectors_base_path)])
     
     
-        train_trial_keys, val_trial_keys = generate_train_trial_keys(data_spk2utt_list, xvector_scp_list, batch_size=4096, train_and_valid=True, train_ratio=0.95)
+        train_trial_keys, val_trial_keys = generate_train_trial_keys(data_spk2utt_list, xvector_scp_list, train_and_valid=True, train_ratio=0.95)
         
         # Save the training and validation trials and keys for training NPLDA and other discriminative models
-        np.savetxt('trials_and_keys/swbd_sre04to10_mx6_train_trial_keys.tsv', train_trial_keys, fmt='%s', delimiter='\t', comments='none')
-        np.savetxt('trials_and_keys/swbd_sre04to10_mx6_validate_trial_keys.tsv', val_trial_keys, fmt='%s', delimiter='\t', comments='none')
-        
+        np.savetxt('trials_and_keys/sre18_egs_train_trial_keys.tsv', train_trial_keys, fmt='%s', delimiter='\t', comments='none')
+        np.savetxt('trials_and_keys/sre18_egs_validate_trial_keys.tsv', val_trial_keys, fmt='%s', delimiter='\t', comments='none')
+        sys.exit()
         # Save the train and validation xvectors for training a Kaldi PLDA if required
-        train_scp_path = '{}/xvectors_swbd_sre04to10_mx6/train_split/xvector.scp'.format(xvectors_base_path)
-        valid_scp_path = '{}/xvectors_swbd_sre04to10_mx6/valid_split/xvector.scp'.format(xvectors_base_path)
-        save_unique_train_valid_xvector_scps(data_spk2utt_list, xvector_scp_list, train_scp_path, valid_scp_path, train_ratio=0.95)
+        # train_scp_path = '{}/xvectors_swbd_sre04to10_mx6/train_split/xvector.scp'.format(xvectors_base_path)
+        # valid_scp_path = '{}/xvectors_swbd_sre04to10_mx6/valid_split/xvector.scp'.format(xvectors_base_path)
+        # save_unique_train_valid_xvector_scps(data_spk2utt_list, xvector_scp_list, train_scp_path, valid_scp_path, train_ratio=0.95)
 
     # %% Make SRE 18 dev and eval trial keys in required format using existing trial keys
     

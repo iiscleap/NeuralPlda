@@ -32,12 +32,9 @@ utils/analyze_scores.py
 utils/*gen_20_sec_chunks*
 utils/qsub*
 utils/trials_gen*
-utils/models_scorenorm.py
 kaldi_io/**
-mfcc/**
-utils/gen_20*
-utils/trials_gen_e2e.py
-utils/qsub_gen_20sec_chunks_voxceleb.sh
-utils/models_scorenorm.py
 **/*.out
 **/*.err
+mfcc/**
+.git*
+.git/*
