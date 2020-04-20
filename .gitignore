@@ -30,3 +30,9 @@ utils/visualizations/**
 utils/tdnn_xvector.py
 utils/analyze_scores.py
 kaldi_io/**
+.rsyncignore
+mfcc/**
+utils/gen_20*
+utils/trials_gen_e2e.py
+utils/qsub_gen_20sec_chunks_voxceleb.sh
+utils/models_scorenorm.py
